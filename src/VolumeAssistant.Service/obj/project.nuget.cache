@@ -125,9 +125,9 @@
     "/home/runner/.nuget/packages/system.xml.readerwriter/4.3.0/system.xml.readerwriter.4.3.0.nupkg.sha512",
     "/home/runner/.nuget/packages/system.xml.xdocument/4.3.0/system.xml.xdocument.4.3.0.nupkg.sha512",
     "/home/runner/.nuget/packages/tmds.libc/0.2.0/tmds.libc.0.2.0.nupkg.sha512",
+    "/home/runner/.nuget/packages/microsoft.netcore.app.ref/8.0.23/microsoft.netcore.app.ref.8.0.23.nupkg.sha512",
     "/home/runner/.nuget/packages/microsoft.aspnetcore.app.ref/8.0.23/microsoft.aspnetcore.app.ref.8.0.23.nupkg.sha512",
-    "/home/runner/.nuget/packages/microsoft.netcore.app.host.linux-x64/8.0.23/microsoft.netcore.app.host.linux-x64.8.0.23.nupkg.sha512",
-    "/home/runner/.nuget/packages/microsoft.netcore.app.ref/8.0.23/microsoft.netcore.app.ref.8.0.23.nupkg.sha512"
+    "/home/runner/.nuget/packages/microsoft.netcore.app.host.linux-x64/8.0.23/microsoft.netcore.app.host.linux-x64.8.0.23.nupkg.sha512"
   ],
   "logs": []
 }
