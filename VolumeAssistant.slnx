@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/VolumeAssistant.Service/VolumeAssistant.Service.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/VolumeAssistant.Tests/VolumeAssistant.Tests.csproj" />
+  </Folder>
+</Solution>
