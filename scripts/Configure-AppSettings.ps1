@@ -66,7 +66,9 @@ function Set-Value([psobject]$root, [string[]]$path, $value) {
     $current = $root
     for ($i = 0; $i -lt ($path.Length - 1); $i++) {
         $seg = $path[$i]
-        if (-not $current.PSObject.Properties.Match($seg)) {
+        # If the property is missing or its value is null, replace it with a new object
+        if (-not $current.PSObject.Properties.Match($seg) -or $null -eq $current.$seg) {
+            if ($current.PSObject.Properties.Match($seg)) { $current.PSObject.Properties.Remove($seg) }
             $current | Add-Member -MemberType NoteProperty -Name $seg -Value ([pscustomobject]@{})
         }
         $current = $current.$seg

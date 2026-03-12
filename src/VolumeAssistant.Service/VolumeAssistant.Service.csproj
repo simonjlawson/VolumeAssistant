@@ -17,6 +17,8 @@
     <PackageReference Include="Makaretu.Dns.Multicast" Version="0.27.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.0" />
+    <!-- Explicit reference required for System.ServiceProcess when running as a Windows Service on .NET 8 -->
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.0" />
     <PackageReference Include="NAudio" Version="2.2.1" />
   </ItemGroup>
 
