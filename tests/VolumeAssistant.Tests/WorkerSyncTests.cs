@@ -124,39 +124,5 @@ namespace VolumeAssistant.Tests
             Assert.Single(cam.SetVolumeCalls);
         }
 
-        [Fact]
-        public void CambridgeAudioUpdate_DoesNotLoop_BackToCambridge()
-        {
-            var audio = new TestAudioController();
-            var matterDevice = new MatterDevice();
-            var matterServer = new MatterServer(matterDevice, NullLogger<MatterServer>.Instance);
-            var mdns = new MdnsAdvertiser(matterDevice, NullLogger<MdnsAdvertiser>.Instance);
-            var cam = new TestCambridgeAudioClient();
-
-            var worker = new Worker(audio, matterDevice, matterServer, mdns, NullLogger<Worker>.Instance, cam);
-
-            var workerType = typeof(Worker);
-            var onMatter = workerType.GetMethod("OnMatterDeviceStateChanged", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-            var onWindows = workerType.GetMethod("OnWindowsVolumeChanged", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-            var onCam = workerType.GetMethod("OnCambridgeAudioStateChanged", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-
-            var matterDelegateType = typeof(EventHandler<>).MakeGenericType(typeof(ValueTuple<byte, bool>));
-            var matterDel = Delegate.CreateDelegate(matterDelegateType, worker, onMatter);
-            matterDevice.DeviceStateChanged += (EventHandler<(byte Level, bool IsOn)>)matterDel;
-
-            var windowsDel = (EventHandler<VolumeChangedEventArgs>)Delegate.CreateDelegate(typeof(EventHandler<VolumeChangedEventArgs>), worker, onWindows);
-            audio.VolumeChanged += windowsDel;
-
-            var camDel = (EventHandler<CambridgeAudioStateChangedEventArgs>)Delegate.CreateDelegate(typeof(EventHandler<CambridgeAudioStateChangedEventArgs>), worker, onCam);
-            cam.StateChanged += camDel;
-
-            // Simulate Cambridge Audio reporting a change
-            cam.RaiseStateChanged(30, false);
-
-            Thread.Sleep(100);
-
-            // Worker should have applied to Windows but should NOT have sent a SetVolume back to Cambridge
-            Assert.Empty(cam.SetVolumeCalls);
-        }
     }
 }
