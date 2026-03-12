@@ -1,21 +1,84 @@
 # VolumeAssistant
 
-A Windows serivce that exposes the Windows master volume as a **Matter** smart home device on the local network for other devices to match. A Home Assistant, Google Home, or Apple Home controller can discover, commission, and control the Windows PC volume as if it were a dimmable light — where the *brightness* (level 0–254) maps directly to *volume* (0–100%).
+## Summary
+Directly syncs Windows volume with external sources allowing them to used as traditional USB audio due to highend HiFis enforcing maximum volume. 
 
-## Features
+## Functionality
+A Windows serivce that can expose the Windows master volume as a **Matter** smart home device on the local network for other devices to match. Connects to CambridgeAudio StreamMagic devices and directly syncs Windows volume.A Home Assistant, Google Home, or Apple Home controller can discover, commission, and control the Windows PC volume as if it were a dimmable light — where the *brightness* (level 0–254) maps directly to *volume* (0–100%).
 
 - **Windows Service** – runs in the background without a UI, starts automatically with Windows.
 - **Real-time volume sync** – whenever the master volume changes in Windows, the change is immediately reported to all subscribed Matter controllers.
 - **Two-way control** – Matter controllers can set the volume (Level Control cluster) or mute it (On/Off cluster).
 - **mDNS advertisement** – the device is automatically discoverable via DNS-SD (`_matterc._udp` + `_matter._tcp`).
 - **Matter protocol** – UDP server on port 5540 with standard Interaction Model: Read, Write, Subscribe, and Command operations.
-- **Cambridge Audio** - Direct intergration of Cambridge Audio API for Windows -> CA volume sync and source/output/power control.
+- **Cambridge Audio** - Direct intergration of Cambridge Audio API for Windows -> CA volume sync and configurable source/output/power control.
+
+## Installation
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistant.ps1
 ```
 
-## Architecture
+## Usage
+
+### Requirements
+
+- Windows 10
+- .NET 10.0 Runtime
+
+### Build
+
+Standard dotnet CLI commands to build, run, and test the solution:
+```bash
+dotnet build VolumeAssistant.slnx
+dotnet run --project src/VolumeAssistant.Service
+dotnet test tests/VolumeAssistant.Tests
+```
+
+### Scripts
+
+PowerShell Helper scripts `README-PS-SCRIPTS.md`.
+
+Install
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistant.ps1
+```
+
+Configure
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Configure-AppSettings.ps1
+```
+
+Start
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Start-VolumeAssistant.ps1
+```
+
+Stop
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Stop-VolumeAssistant.ps1
+```
+
+### Manual Service Commands
+
+To Install
+```powershell
+# Publish a self-contained executable
+dotnet publish src/VolumeAssistant.Service -c Release -r win-x64 --self-contained -o publish/
+
+# Install the Windows Service (run as Administrator)
+sc.exe create VolumeAssistant binPath="C:\path\to\publish\VolumeAssistant.Service.exe" start=auto DisplayName="VolumeAssistant Matter Bridge"
+sc.exe description VolumeAssistant "Exposes Windows master volume as a Matter device"
+sc.exe start VolumeAssistant
+```
+
+Uninstall
+```powershell
+sc.exe stop VolumeAssistant
+sc.exe delete VolumeAssistant
+```
+
+## Matter
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -40,74 +103,14 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistant.ps1
 └──────────────────────────────────────────────────────────────┘
 ```
 
-## Requirements
-
-- Windows 10 / Server 2019 or later
-- .NET 8.0 Runtime
-
-## Build
-
-```bash
-dotnet build VolumeAssistant.slnx
-```
-
-## Run (console / development)
-
-```bash
-dotnet run --project src/VolumeAssistant.Service
-```
-
-## Installation
-
-PowerShell Helper scripts `README-PS-SCRIPTS.md`.
-
-### Install
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistant.ps1
-```
-
-### Configure
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Configure-AppSettings.ps1
-```
-
-### Start
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Start-VolumeAssistant.ps1
-```
-
-### Stop
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Stop-VolumeAssistant.ps1
-```
-
-## Manual Install
-
-```powershell
-# Publish a self-contained executable
-dotnet publish src/VolumeAssistant.Service -c Release -r win-x64 --self-contained -o publish/
-
-# Install the Windows Service (run as Administrator)
-sc.exe create VolumeAssistant binPath="C:\path\to\publish\VolumeAssistant.Service.exe" start=auto DisplayName="VolumeAssistant Matter Bridge"
-sc.exe description VolumeAssistant "Exposes Windows master volume as a Matter device"
-sc.exe start VolumeAssistant
-```
-
-To uninstall (manual):
-
-```powershell
-sc.exe stop VolumeAssistant
-sc.exe delete VolumeAssistant
-```
-
-## Commission into Matter Fabric
+### Commission into Matter Fabric
 
 After starting the service, open your Matter controller (e.g., Home Assistant) and add a new Matter device.  
 Use the default commissioning PIN: **`20202021`** and discriminator **`3840`**.
 
 The device appears as a **Dimmable Light** where the level (0–100%) controls the Windows volume.
 
-## Cambridge Audio Integration
+## Cambridge Audio
 
 VolumeAssistant can optionally connect to a [Cambridge Audio StreamMagic](https://www.cambridgeaudio.com/streammagic) amplifier over your local network, providing volume and source control.
 
@@ -157,15 +160,24 @@ Set the `CambridgeAudio:Host` value in `appsettings.json` (or via environment va
   }
 }
 ```
-
 Leave `Host` empty to disable Cambridge Audio integration entirely.
+
+```
+    "StartVolume": "10",
+    "StartSourceName": "PC",
+    "StartOutput": null,
+    "StartPower": false,
+    "ClosePower": false,
+    "RelativeVolume": false
+```
+
+**StartVolume** - Optional initial volume level (0–100%) to set on startup. If not specified, retains current amplifier volume.
+**StartSourceName** - Optional initial source name to select on startup. Must match a valid source from `GetSourcesAsync()`. If not specified, retains current source.
+**StartOutput** - Optional initial output name to select on startup. Must match a valid output from `GetOutputsAsync()`. If not specified, retains current output.
+**StartPower** - Optional initial power state to set on startup. `true` for on, `false` for standby. If not specified, retains current power state.
+**ClosePower** - WIP Optional setting to power off the amplifier when the service stops. `true` to power off, `false` to leave on. Default is `false`.
+**RelativeVolume** - WIP Optional setting to treat volume changes as relative adjustments instead of absolute levels. It gets weird using this but might be useful, `true` to enable relative volume (e.g., +5% or -10%), `false` for absolute volume levels. Default is `false`.
 
 ### Reconnection
 
 The client automatically reconnects on disconnect using exponential backoff (default: 0.5 s initial, 30 s maximum), matching the Python aiostreammagic reconnect behaviour.
-
-
-
-```bash
-dotnet test tests/VolumeAssistant.Tests
-```

@@ -1,6 +1,9 @@
 <##
 Install-VolumeAssistant.ps1
 
+You'll need this:
+Set-ExecutionPolicy unrestricted
+
 Publishes the VolumeAssistant.Service project, copies the published files to an install
 directory (only copying any appsettings files if they do not already exist at the
 destination), and installs the Windows service.
@@ -11,6 +14,7 @@ Usage examples:
 
     .\scripts\Install-VolumeAssistant.ps1
     .\scripts\Install-VolumeAssistant.ps1 -ProjectPath "src\VolumeAssistant.Service" -InstallDir "C:\Program Files\VolumeAssistant"
+    dotnet "C:\Program Files\VolumeAssistant\VolumeAssistant.Service.dll"
 #>
 
 param(
@@ -18,7 +22,11 @@ param(
     [string]$Configuration = "Release",
     [string]$InstallDir = "$env:ProgramFiles\VolumeAssistant",
     [string]$ServiceName = "VolumeAssistant",
-    [string]$ServiceDisplayName = "VolumeAssistant Service"
+    [string]$ServiceDisplayName = "VolumeAssistant Service",
+    # Publish RID for self-contained publish to ensure required runtime assemblies
+    [string]$Runtime = "win-x64",
+    # Publish self-contained by default to avoid missing shared framework assemblies on target machines
+    [bool]$SelfContained = $true
 )
 
 function Ensure-Administrator {
@@ -81,8 +89,13 @@ try {
 }
 
 # Publish framework-dependent (no RID) by default
-Write-Info "Running: dotnet publish -c $Configuration -o $publishTemp $($csproj.FullName)"
-dotnet publish --no-restore -c $Configuration -o $publishTemp $csproj.FullName
+if ($SelfContained) {
+    Write-Info "Running: dotnet publish -c $Configuration -r $Runtime --self-contained true -o $publishTemp $($csproj.FullName)"
+    dotnet publish --no-restore -c $Configuration -r $Runtime --self-contained true -o $publishTemp $csproj.FullName
+} else {
+    Write-Info "Running: dotnet publish -c $Configuration -o $publishTemp $($csproj.FullName)"
+    dotnet publish --no-restore -c $Configuration -o $publishTemp $csproj.FullName
+}
 if ($LASTEXITCODE -ne 0) {
     Write-Error "dotnet publish failed (exit code $LASTEXITCODE)."
     exit $LASTEXITCODE

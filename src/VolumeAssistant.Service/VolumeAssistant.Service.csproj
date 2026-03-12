@@ -1,17 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk.Worker">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>dotnet-VolumeAssistant.Service-13e34896-4423-4193-b402-baa4c120857d</UserSecretsId>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
     <AssemblyName>VolumeAssistant.Service</AssemblyName>
     <RootNamespace>VolumeAssistant.Service</RootNamespace>
-    <!-- Suppress platform compatibility warnings – service is designed for Windows -->
-    <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
-  <!-- Application icon for the produced Windows executable -->
+	
   <PropertyGroup>
     <ApplicationIcon>Assets\volume.ico</ApplicationIcon>
   </PropertyGroup>
@@ -19,14 +18,13 @@
   <ItemGroup>
     <PackageReference Include="Makaretu.Dns" Version="2.0.1" />
     <PackageReference Include="Makaretu.Dns.Multicast" Version="0.27.0" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.0" />
-    <!-- Explicit reference required for System.ServiceProcess when running as a Windows Service on .NET 8 -->
-    <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.0" />
+    <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.0" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.0" />
     <PackageReference Include="NAudio" Version="2.2.1" />
   </ItemGroup>
-  <!-- Include the icon file in the project so it is available for builds.
-       Place 'Assets\volume.ico' in the project directory. -->
+	
   <ItemGroup>
     <None Include="Assets\volume.ico" />
   </ItemGroup>

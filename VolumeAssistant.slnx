@@ -5,6 +5,9 @@
     <File Path="scripts/Start-VolumeAssistant.ps1" />
     <File Path="scripts/Stop-VolumeAssistant.ps1" />
   </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="README.md" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/VolumeAssistant.Service/VolumeAssistant.Service.csproj" />
   </Folder>

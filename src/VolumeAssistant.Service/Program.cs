@@ -34,14 +34,42 @@ builder.Services.AddSingleton<ICambridgeAudioClient>(sp =>
     var opts = sp.GetRequiredService<IOptions<CambridgeAudioOptions>>().Value;
     if (!opts.IsEnabled)
         return new NullCambridgeAudioClient();
-
-    return new CambridgeAudioClient(
-        sp.GetRequiredService<IOptions<CambridgeAudioOptions>>(),
-        sp.GetRequiredService<ILogger<CambridgeAudioClient>>());
+    try
+    {
+        return new CambridgeAudioClient(
+            sp.GetRequiredService<IOptions<CambridgeAudioOptions>>(),
+            sp.GetRequiredService<ILogger<CambridgeAudioClient>>());
+    }
+    catch (Exception ex)
+    {
+        // If the Cambridge client fails to construct, log and fall back to a null implementation
+        var factoryLogger = sp.GetService<ILoggerFactory>();
+        factoryLogger?.CreateLogger("Program")
+            .LogWarning(ex, "Failed to create CambridgeAudioClient at startup; falling back to NullCambridgeAudioClient.");
+        return new NullCambridgeAudioClient();
+    }
 });
 
 // Register the main background service
 builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();
-host.Run();
+try
+{
+    host.Run();
+}
+catch (Exception ex)
+{
+    // If the host fails to start, attempt to log the exception. If logging is not available, write to standard error for debugging via console
+    try
+    {
+        var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Program");
+        logger.LogCritical(ex, "Host terminated unexpectedly during startup.");
+    }
+    catch
+    {
+        Console.Error.WriteLine($"Host terminated unexpectedly: {ex}");
+    }
+
+    throw;
+}
