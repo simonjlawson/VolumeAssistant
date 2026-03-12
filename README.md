@@ -10,7 +10,7 @@ A Windows serivce that exposes the Windows master volume as a **Matter** smart h
 - **mDNS advertisement** – the device is automatically discoverable via DNS-SD (`_matterc._udp` + `_matter._tcp`).
 - **Matter protocol** – UDP server on port 5540 with standard Interaction Model: Read, Write, Subscribe, and Command operations.
 - **Cambridge Audio** - Direct intergration of Cambridge Audio API for Windows -> CA volume sync and source/output/power control.
-- 
+
 ## Architecture
 
 ```
