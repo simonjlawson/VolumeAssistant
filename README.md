@@ -64,19 +64,25 @@ dotnet run --project src/VolumeAssistant.Service
 
 ## Install as a Windows Service
 
-Recommended: use the included PowerShell helper scripts (run as Administrator). See the PowerShell scripts README for details: `README-PS-SCRIPTS.md`.
+PowerShell Helper scripts (run as Administrator) `README-PS-SCRIPTS.md`.
 
+# Install the service
 ```powershell
-# Install the service (publishes and installs into %ProgramFiles% by default)
 powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistant.ps1
+```
 
-# Configure appsettings in the install directory (interactive)
+# Configure
+```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Configure-AppSettings.ps1
+```
 
-# Start the installed service and show diagnostics
+# Start the installed service
+```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Start-VolumeAssistant.ps1
+```
 
-# Stop the installed service (if needed)
+# Stop the installed service
+```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Stop-VolumeAssistant.ps1
 ```
 
