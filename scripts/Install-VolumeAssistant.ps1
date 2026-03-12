@@ -41,9 +41,10 @@ $scriptRoot = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
 # 3) relative to the repository root (script parent)
 $candidates = @()
 $candidates += $ProjectPath
-$candidates += Join-Path $scriptRoot $ProjectPath
 $repoRoot = Split-Path -Path $scriptRoot -Parent
 if ($repoRoot) { $candidates += Join-Path $repoRoot $ProjectPath }
+# Also try the script-folder-relative path last to avoid accidental matches under the scripts folder
+$candidates += Join-Path $scriptRoot $ProjectPath
 
 $found = $null
 foreach ($cand in $candidates) {
