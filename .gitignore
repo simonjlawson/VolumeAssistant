@@ -45,3 +45,9 @@ bld/
 ## OS
 .DS_Store
 Thumbs.db
+/src/VolumeAssistant.Service/obj/project.assets.json
+/src/VolumeAssistant.Service/obj/project.nuget.cache
+/src/VolumeAssistant.Service/obj/VolumeAssistant.Service.csproj.nuget.dgspec.json
+/tests/VolumeAssistant.Tests/obj/project.assets.json
+/tests/VolumeAssistant.Tests/obj/project.nuget.cache
+/tests/VolumeAssistant.Tests/obj/VolumeAssistant.Tests.csproj.nuget.dgspec.json
