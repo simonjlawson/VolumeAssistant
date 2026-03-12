@@ -15,8 +15,10 @@ A Windows serivce that can expose the Windows master volume as a **Matter** smar
 
 ## Installation
 
+Run the install convenience script, then configure the appsettings.json file
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistant.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\Configure-AppSettings.ps1
 ```
 
 ## Usage
