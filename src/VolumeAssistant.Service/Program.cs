@@ -16,6 +16,11 @@ builder.Services.AddWindowsService(options =>
 builder.Services.AddSingleton<IAudioController, WindowsAudioController>();
 
 // Register Matter device, server, and mDNS advertiser
+// Configure Matter options and register services conditionally based on configuration
+builder.Services.Configure<MatterOptions>(builder.Configuration.GetSection("VolumeAssistant:Matter"));
+// Always register Matter services so Worker can be constructed even when
+// Matter functionality is disabled at runtime. Worker and other components
+// should check the configured options before starting servers or advertising.
 builder.Services.AddSingleton<MatterDevice>();
 builder.Services.AddSingleton<MatterServer>();
 builder.Services.AddSingleton<MdnsAdvertiser>();

@@ -1,4 +1,8 @@
+using System;
+using System.Linq;
+using System.Threading;
 using VolumeAssistant.Service.Audio;
+using Microsoft.Extensions.Options;
 using VolumeAssistant.Service.CambridgeAudio;
 using VolumeAssistant.Service.Matter;
 using VolumeAssistant.Service.Matter.Clusters;
@@ -10,17 +14,33 @@ namespace VolumeAssistant.Service;
 /// 1. Windows audio volume monitoring
 /// 2. Cambridge Audio amplifier control (optional)
 /// 3. Matter device state synchronization
-/// 4. Matter server operation
+/// 4. Matter server operation (optional)
 /// 5. mDNS advertisement
 /// </summary>
 public sealed class Worker : BackgroundService
 {
     private readonly IAudioController _audioController;
     private readonly ICambridgeAudioClient? _cambridgeAudio;
+    private readonly CambridgeAudioOptions _cambridgeOptions;
     private readonly MatterDevice _matterDevice;
     private readonly MatterServer _matterServer;
     private readonly MdnsAdvertiser _mdnsAdvertiser;
+    private readonly MatterOptions _matterOptions;
     private readonly ILogger<Worker> _logger;
+    
+    // Counter to suppress Windows-originated volume change handling when the service
+    // itself is applying a change to the Windows volume. Use an integer counter
+    // to support nested suppressions across async boundaries.
+    private int _suppressWindowsVolumeChangeCount;
+    // Track last known Windows volume percent so we can compute relative deltas
+    // when RelativeVolume is enabled.
+    private float _lastWindowsVolumePercent;
+    // Pending Cambridge Audio sync request coalescing
+    private readonly object _camSyncLock = new object();
+
+    private int? _pendingCamVolume;
+    private bool? _pendingCamMute;
+    private Task? _processCamSyncTask;
 
     public Worker(
         IAudioController audioController,
@@ -28,7 +48,9 @@ public sealed class Worker : BackgroundService
         MatterServer matterServer,
         MdnsAdvertiser mdnsAdvertiser,
         ILogger<Worker> logger,
-        ICambridgeAudioClient? cambridgeAudio = null)
+        ICambridgeAudioClient? cambridgeAudio = null,
+        IOptions<CambridgeAudioOptions>? cambridgeOptions = null,
+        IOptions<MatterOptions>? matterOptions = null)
     {
         _audioController = audioController;
         _matterDevice = matterDevice;
@@ -36,6 +58,8 @@ public sealed class Worker : BackgroundService
         _mdnsAdvertiser = mdnsAdvertiser;
         _logger = logger;
         _cambridgeAudio = cambridgeAudio;
+        _cambridgeOptions = cambridgeOptions?.Value ?? new CambridgeAudioOptions();
+        _matterOptions = matterOptions?.Value ?? new MatterOptions();
     }
 
     /// <inheritdoc />
@@ -46,7 +70,13 @@ public sealed class Worker : BackgroundService
         // Initialize device state from current Windows volume
         float initialVolume = _audioController.GetVolumePercent();
         bool initialMuted = _audioController.GetMuted();
-        _matterDevice.UpdateFromVolume(initialVolume, initialMuted);
+        if (_matterOptions.Enabled)
+        {
+            _matterDevice.UpdateFromVolume(initialVolume, initialMuted);
+        }
+
+        // initialize last-known Windows volume for relative calculations
+        _lastWindowsVolumePercent = initialVolume;
 
         _logger.LogInformation(
             "Initial volume: {Volume:F1}%, Muted: {Muted}",
@@ -56,28 +86,66 @@ public sealed class Worker : BackgroundService
         _audioController.VolumeChanged += OnWindowsVolumeChanged;
 
         // Subscribe to Matter device state changes (from Matter controller commands)
-        _matterDevice.DeviceStateChanged += OnMatterDeviceStateChanged;
+        if (_matterOptions.Enabled)
+        {
+            _matterDevice.DeviceStateChanged += OnMatterDeviceStateChanged;
 
-        // Start the Matter UDP server
-        _matterServer.Start(stoppingToken);
+            // Start the Matter UDP server
+            _matterServer.Start(stoppingToken);
 
-        // Start mDNS advertisement
-        _mdnsAdvertiser.Start();
+            // Start mDNS advertisement
+            _mdnsAdvertiser.Start();
 
-        _logger.LogInformation(
-            "VolumeAssistant Matter device ready. Instance: {InstanceName}, Discriminator: {Discriminator}",
-            _matterDevice.InstanceName, _matterDevice.Discriminator);
+            _logger.LogInformation(
+                "VolumeAssistant Matter device ready. Instance: {InstanceName}, Discriminator: {Discriminator}",
+                _matterDevice.InstanceName, _matterDevice.Discriminator);
+        }
 
         // Start Cambridge Audio integration if configured
         if (_cambridgeAudio != null)
         {
-            _cambridgeAudio.StateChanged += OnCambridgeAudioStateChanged;
             _cambridgeAudio.ConnectionChanged += OnCambridgeAudioConnectionChanged;
 
             // ConnectAsync runs the reconnect loop in the background
-            _ = Task.Run(() => _cambridgeAudio.ConnectAsync(stoppingToken), stoppingToken);
+            _ = Task.Run(async () =>
+            {
+                await _cambridgeAudio.ConnectAsync(stoppingToken).ConfigureAwait(false);
 
-            _logger.LogInformation("Cambridge Audio integration enabled.");
+                // After successful connect, apply optional startup settings
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(_cambridgeOptions.StartSourceName))
+                    {
+                        // Find source by name
+                        var sources = _cambridgeAudio.Sources;
+                        var match = sources.FirstOrDefault(s => s.Name.Equals(_cambridgeOptions.StartSourceName, StringComparison.OrdinalIgnoreCase));
+                        if (match != null)
+                        {
+                            await _cambridgeAudio.SetSourceAsync(match.Id);
+                            _logger.LogInformation($"Cambridge Audio Source Set - Source: {_cambridgeOptions.StartSourceName}");
+                        }
+                    }
+
+                    if (_cambridgeOptions.StartVolume.HasValue)
+                    {
+                        await _cambridgeAudio.SetVolumeAsync(_cambridgeOptions.StartVolume.Value);
+                        _logger.LogInformation($"Cambridge Audio Volume Set - Volume: {_cambridgeOptions.StartVolume}");
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(_cambridgeOptions.StartOutput))
+                    {
+                        // audio_output is an optional parameter; use the new API to set it
+                        await _cambridgeAudio.SetAudioOutputAsync(_cambridgeOptions.StartOutput!);
+                        _logger.LogInformation($"Cambridge Audio Output Set - Output: {_cambridgeOptions.StartOutput}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to apply Cambridge Audio startup settings.");
+                }
+            }, stoppingToken);
+
+            _logger.LogInformation("Cambridge Audio integration ready!");
         }
 
         // Keep alive until cancellation
@@ -92,17 +160,22 @@ public sealed class Worker : BackgroundService
 
         // Cleanup
         _audioController.VolumeChanged -= OnWindowsVolumeChanged;
-        _matterDevice.DeviceStateChanged -= OnMatterDeviceStateChanged;
+        if (_matterOptions.Enabled)
+        {
+            _matterDevice.DeviceStateChanged -= OnMatterDeviceStateChanged;
+        }
 
         if (_cambridgeAudio != null)
         {
-            _cambridgeAudio.StateChanged -= OnCambridgeAudioStateChanged;
             _cambridgeAudio.ConnectionChanged -= OnCambridgeAudioConnectionChanged;
             await _cambridgeAudio.DisconnectAsync();
         }
 
-        _mdnsAdvertiser.Stop();
-        _matterServer.Stop();
+        if (_matterOptions.Enabled)
+        {
+            _mdnsAdvertiser.Stop();
+            _matterServer.Stop();
+        }
 
         _logger.LogInformation("VolumeAssistant service stopped.");
     }
@@ -126,24 +199,118 @@ public sealed class Worker : BackgroundService
         _ = Task.Run(async () =>
         {
             // Notify Matter subscribers
-            await _matterServer.NotifySubscribersAsync(1, ClusterId.LevelControl, 0x0000, matterLevel);
-            await _matterServer.NotifySubscribersAsync(1, ClusterId.OnOff, 0x0000, !e.IsMuted);
+            if (_matterOptions.Enabled)
+            {
+                await _matterServer.NotifySubscribersAsync(1, ClusterId.LevelControl, 0x0000, matterLevel);
+                await _matterServer.NotifySubscribersAsync(1, ClusterId.OnOff, 0x0000, !e.IsMuted);
+            }
 
             // Sync to Cambridge Audio amplifier
-            if (_cambridgeAudio != null && _cambridgeAudio.IsConnected)
+            // If we are currently suppressing Windows-originated events, skip syncing
+            // back to Cambridge Audio – this avoids feedback loops when the service
+            // applied the Windows volume itself.
+            if (Volatile.Read(ref _suppressWindowsVolumeChangeCount) == 0
+                && _cambridgeAudio != null && _cambridgeAudio.IsConnected)
             {
                 try
                 {
-                    int volumeInt = (int)Math.Round(e.VolumePercent);
-                    await _cambridgeAudio.SetVolumeAsync(volumeInt);
-                    await _cambridgeAudio.SetMuteAsync(e.IsMuted);
+                    int? desiredCamVolume = null;
+                    bool desiredMute = e.IsMuted;
+
+                    if (_cambridgeOptions.RelativeVolume)
+                    {
+                        float delta = e.VolumePercent - _lastWindowsVolumePercent;
+                        if (Math.Abs(delta) >= 0.5f)
+                        {
+                            var camState = _cambridgeAudio.State;
+                            if (camState?.VolumePercent.HasValue == true)
+                            {
+                                desiredCamVolume = (int)Math.Round(camState.VolumePercent.Value + delta);
+                            }
+                            else
+                            {
+                                desiredCamVolume = (int)Math.Round(e.VolumePercent);
+                            }
+                            desiredCamVolume = Math.Clamp(desiredCamVolume.Value, 0, 100);
+                        }
+                    }
+                    else
+                    {
+                        desiredCamVolume = (int)Math.Round(e.VolumePercent);
+                    }
+
+                    if (desiredCamVolume.HasValue || desiredMute != null)
+                    {
+                        lock (_camSyncLock)
+                        {
+                            // overwrite pending values to coalesce rapid events
+                            if (desiredCamVolume.HasValue)
+                                _pendingCamVolume = desiredCamVolume.Value;
+                            _pendingCamMute = desiredMute;
+
+                            if (_processCamSyncTask == null || _processCamSyncTask.IsCompleted)
+                            {
+                                _processCamSyncTask = Task.Run(ProcessPendingCamSyncAsync);
+                            }
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to sync Windows volume to Cambridge Audio device.");
+                    _logger.LogWarning(ex, "Failed to queue Windows->Cambridge Audio sync.");
                 }
             }
+
+            // Update last known Windows volume for future relative calculations
+            _lastWindowsVolumePercent = e.VolumePercent;
         });
+    }
+
+    private async Task ProcessPendingCamSyncAsync()
+    {
+        while (true)
+        {
+            int? volume;
+            bool? mute;
+            lock (_camSyncLock)
+            {
+                volume = _pendingCamVolume;
+                mute = _pendingCamMute;
+                _pendingCamVolume = null;
+                _pendingCamMute = null;
+            }
+
+            if (volume == null && mute == null)
+            {
+                lock (_camSyncLock)
+                {
+                    // no pending work, clear running task marker and exit
+                    _processCamSyncTask = null;
+                }
+                return;
+            }
+
+            try
+            {
+                if (_cambridgeAudio != null && _cambridgeAudio.IsConnected)
+                {
+                    if (volume.HasValue)
+                    {
+                        await _cambridgeAudio.SetVolumeAsync(volume.Value);
+                    }
+                    if (mute.HasValue)
+                    {
+                        await _cambridgeAudio.SetMuteAsync(mute.Value);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to sync Windows volume to Cambridge Audio device.");
+            }
+
+            // loop to pick up any coalesced updates
+        }
     }
 
     /// <summary>
@@ -159,6 +326,9 @@ public sealed class Worker : BackgroundService
             "Matter command received: Level={Level} ({Volume:F1}%), Muted: {Muted}",
             state.Level, volumePercent, muted);
 
+        // Suppress the Windows volume changed handler while applying the change
+        // because we will explicitly sync to Cambridge Audio below.
+        Interlocked.Increment(ref _suppressWindowsVolumeChangeCount);
         try
         {
             _audioController.SetVolumePercent(volumePercent);
@@ -167,6 +337,10 @@ public sealed class Worker : BackgroundService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to apply volume change from Matter command.");
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _suppressWindowsVolumeChangeCount);
         }
 
         // Sync to Cambridge Audio amplifier
@@ -202,6 +376,9 @@ public sealed class Worker : BackgroundService
 
         if (state.VolumePercent.HasValue)
         {
+            // Suppress Windows volume change handling while we apply the change so
+            // the resulting Windows event does not re-sync back to Cambridge Audio.
+            Interlocked.Increment(ref _suppressWindowsVolumeChangeCount);
             try
             {
                 _audioController.SetVolumePercent(state.VolumePercent.Value);
@@ -210,6 +387,10 @@ public sealed class Worker : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to apply Cambridge Audio volume change to Windows.");
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _suppressWindowsVolumeChangeCount);
             }
         }
     }

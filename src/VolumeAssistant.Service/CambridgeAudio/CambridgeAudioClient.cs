@@ -41,6 +41,8 @@ public sealed class CambridgeAudioClient : ICambridgeAudioClient
     private Task? _receiveTask;
     private bool _attemptReconnection;
     private bool _disposed;
+    // Used to signal the initial successful connection to callers of ConnectAsync.
+    private TaskCompletionSource<bool>? _initialConnectedTcs;
 
     private CambridgeAudioInfo? _info;
     private IReadOnlyList<CambridgeAudioSource> _sources = Array.Empty<CambridgeAudioSource>();
@@ -76,9 +78,48 @@ public sealed class CambridgeAudioClient : ICambridgeAudioClient
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         _connectCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        _attemptReconnection = false;
 
-        await ConnectWithReconnectAsync(_connectCts.Token);
+        // Allow the reconnect loop to run in the background while ensuring
+        // this ConnectAsync returns as soon as an initial successful
+        // connection is established so callers can continue.
+        _attemptReconnection = true;
+
+        var readyTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _initialConnectedTcs = readyTcs;
+
+        EventHandler<CambridgeAudioConnectionChangedEventArgs>? handler = null;
+        handler = (s, e) =>
+        {
+            if (e.IsConnected)
+            {
+                readyTcs.TrySetResult(true);
+                ConnectionChanged -= handler!;
+            }
+        };
+
+        ConnectionChanged += handler;
+
+        // Start the reconnect loop in the background. It will attempt
+        // connection and keep the receive loop running; ConnectAsync will
+        // complete once the ConnectionChanged event indicates success.
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await ConnectWithReconnectAsync(_connectCts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (_connectCts.IsCancellationRequested)
+            {
+                // ignore cancellation
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Background Cambridge Audio reconnect loop faulted.");
+            }
+        });
+
+        // Wait until initial connection is established or the caller cancels
+        await readyTcs.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private async Task ConnectWithReconnectAsync(CancellationToken cancellationToken)
@@ -247,6 +288,16 @@ public sealed class CambridgeAudioClient : ICambridgeAudioClient
         await RequestAsync(
             EndpointZoneState,
             new Dictionary<string, object?> { ["zone"] = _options.Zone, ["source"] = sourceId },
+            cancellationToken);
+    }
+
+    public async Task SetAudioOutputAsync(string output, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+
+        await RequestAsync(
+            EndpointZoneState,
+            new Dictionary<string, object?> { ["zone"] = _options.Zone, ["audio_output"] = output },
             cancellationToken);
     }
 
@@ -566,5 +617,12 @@ public sealed class CambridgeAudioClient : ICambridgeAudioClient
         {
             PropertyNameCaseInsensitive = true,
         };
+
+        static JsonOptions()
+        {
+            // Register a flexible boolean converter globally to tolerate device responses
+            // that use strings like "on"/"off" or numeric values for boolean fields.
+            Default.Converters.Add(new FlexibleBooleanConverter());
+        }
     }
 }

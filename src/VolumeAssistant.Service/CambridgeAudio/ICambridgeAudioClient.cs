@@ -53,6 +53,11 @@ public interface ICambridgeAudioClient : IAsyncDisposable
     Task SetSourceAsync(string sourceId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Sets the zone audio output (optional parameter supported by some devices).
+    /// </summary>
+    Task SetAudioOutputAsync(string output, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Powers on the device.
     /// </summary>
     Task PowerOnAsync(CancellationToken cancellationToken = default);

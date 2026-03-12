@@ -43,4 +43,26 @@ public sealed class CambridgeAudioOptions
     /// Returns true if a host has been configured and Cambridge Audio integration is enabled.
     /// </summary>
     public bool IsEnabled => !string.IsNullOrWhiteSpace(Host);
+
+    /// <summary>
+    /// Optional source name to select when the service starts and connects to the device.
+    /// If set, the client will lookup the source by name and call SetSourceAsync on startup.
+    /// </summary>
+    public string? StartSourceName { get; set; }
+
+    /// <summary>
+    /// Optional volume (0-100) to set after switching source on startup.
+    /// </summary>
+    public int? StartVolume { get; set; }
+
+    /// <summary>
+    /// Optional audio_output identifier/value to set after switching source and changing volume at startup.
+    /// </summary>
+    public string? StartOutput { get; set; }
+
+    /// <summary>
+    /// When true (default) Windows volume changes are applied as relative increments/decrements to the
+    /// Cambridge Audio device volume instead of setting absolute values.
+    /// </summary>
+    public bool RelativeVolume { get; set; } = true;
 }

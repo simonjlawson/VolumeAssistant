@@ -89,6 +89,7 @@ public sealed class CambridgeAudioState
 
     /// <summary>Whether pre-amp state is active.</summary>
     [JsonPropertyName("pre_amp_state")]
+    [JsonConverter(typeof(FlexibleBooleanConverter))]
     public bool PreAmpState { get; set; }
 }
 

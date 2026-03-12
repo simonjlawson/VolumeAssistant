@@ -1,5 +1,6 @@
 using System.Text.Json;
 using VolumeAssistant.Service.CambridgeAudio;
+using Xunit;
 
 namespace VolumeAssistant.Tests;
 
@@ -166,6 +167,32 @@ public class CambridgeAudioModelsTests
         Assert.False(state.Power);
     }
 
+    [Theory]
+    [InlineData("true", true)]
+    [InlineData("false", false)]
+    [InlineData("\"on\"", true)]
+    [InlineData("\"off\"", false)]
+    [InlineData("1", true)]
+    [InlineData("0", false)]
+    [InlineData("\"1\"", true)]
+    [InlineData("\"0\"", false)]
+    public void CambridgeAudioState_Deserializes_PreAmpState_VariousFormats(string preAmpValue, bool expected)
+    {
+        string json = "{ " +
+            "\"source\": \"test\"," +
+            "\"power\": true," +
+            "\"mute\": false," +
+            "\"pre_amp_mode\": true," +
+            "\"pre_amp_state\": " + preAmpValue +
+            " }";
+
+        var state = JsonSerializer.Deserialize<CambridgeAudioState>(json,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        Assert.NotNull(state);
+        Assert.Equal(expected, state.PreAmpState);
+    }
+
     // ── CambridgeAudioOptions ────────────────────────────────────────────────
 
     [Fact]
@@ -306,7 +333,8 @@ file sealed class TestNullClient : ICambridgeAudioClient
     public Task DisconnectAsync() => Task.CompletedTask;
     public Task SetVolumeAsync(int v, CancellationToken ct = default) => Task.CompletedTask;
     public Task SetMuteAsync(bool m, CancellationToken ct = default) => Task.CompletedTask;
-    public Task SetSourceAsync(string s, CancellationToken ct = default) => Task.CompletedTask;
+    public Task SetSourceAsync(string sourceId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public Task SetAudioOutputAsync(string output, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task PowerOnAsync(CancellationToken ct = default) => Task.CompletedTask;
     public Task PowerOffAsync(CancellationToken ct = default) => Task.CompletedTask;
 
