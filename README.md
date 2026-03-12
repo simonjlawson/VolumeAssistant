@@ -11,39 +11,34 @@ A Windows serivce that exposes the Windows master volume as a **Matter** smart h
 - **Matter protocol** – UDP server on port 5540 with standard Interaction Model: Read, Write, Subscribe, and Command operations.
 - **Cambridge Audio** - Direct intergration of Cambridge Audio API for Windows -> CA volume sync and source/output/power control.
 
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistant.ps1
+```
+
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                  VolumeAssistant.Service                    │
-│                                                             │
-│  ┌───────────────────┐      ┌─────────────────────────────┐ │
+┌──────────────────────────────────────────────────────────────┐
+│                  VolumeAssistant.Service                     │
+│                                                              │
+│  ┌────────────────────┐      ┌─────────────────────────────┐ │
 │  │ WindowsAudio       │      │ MatterDevice                │ │
 │  │ Controller         │◄────►│  Endpoint 0 (Root)          │ │
 │  │ (NAudio WASAPI)    │      │    BasicInformation cluster │ │
-│  └───────────────────┘      │  Endpoint 1 (Volume)        │ │
+│  └────────────────────┘      │  Endpoint 1 (Volume)        │ │
 │                              │    OnOff cluster            │ │
-│  ┌───────────────────┐      │    LevelControl cluster     │ │
+│  ┌────────────────────┐      │    LevelControl cluster     │ │
 │  │ Worker             │◄────►└─────────────────────────────┘ │
-│  │ (BackgroundService)│             │                         │
-│  └───────────────────┘      ┌──────▼──────────────────────┐ │
-│                              │ MatterServer                 │ │
-│  ┌───────────────────┐      │ (UDP:5540 Interaction Model) │ │
-│  │ MdnsAdvertiser     │      └─────────────────────────────┘ │
-│  │ (_matterc._udp     │                                       │
-│  │  _matter._tcp)     │                                       │
+│  │ (BackgroundService)│             │                        │
+│  └────────────────────┘      ┌──────▼──────────────────────┐ │
+│                              │ MatterServer                │ │
+│  ┌───────────────────┐       │ (UDP:5540 Interaction Model │ │
+│  │ MdnsAdvertiser    │       └─────────────────────────────┘ │
+│  │ (_matterc._udp    │                                       │
+│  │  _matter._tcp)    │                                       │
 │  └───────────────────┘                                       │
-└─────────────────────────────────────────────────────────────┘
+└──────────────────────────────────────────────────────────────┘
 ```
-
-## Matter Device Mapping
-
-| Windows concept | Matter concept |
-|---|---|
-| Master volume (0–100%) | Level Control – `CurrentLevel` (0–254) |
-| Muted | On/Off – `OnOff` = `false` |
-| Unmuted | On/Off – `OnOff` = `true` |
-| Volume change event | Attribute subscription report |
 
 ## Requirements
 
@@ -62,11 +57,11 @@ dotnet build VolumeAssistant.slnx
 dotnet run --project src/VolumeAssistant.Service
 ```
 
-## Install as a Windows Service
+## Installation
 
-PowerShell Helper scripts (run as Administrator) `README-PS-SCRIPTS.md`.
+PowerShell Helper scripts `README-PS-SCRIPTS.md`.
 
-### Install the service
+### Install
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistant.ps1
 ```
@@ -76,12 +71,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistant.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\Configure-AppSettings.ps1
 ```
 
-### Start the installed service
+### Start
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Start-VolumeAssistant.ps1
 ```
 
-### Stop the installed service
+### Stop
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Stop-VolumeAssistant.ps1
 ```
