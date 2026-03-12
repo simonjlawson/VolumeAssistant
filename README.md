@@ -1,6 +1,6 @@
 # VolumeAssistant
 
-Exposes the Windows master volume as a **Matter** smart home device on the local network. A Home Assistant, Google Home, or Apple Home controller can discover, commission, and control the Windows PC volume as if it were a dimmable light — where the *brightness* (level 0–254) maps directly to *volume* (0–100%).
+A Windows serivce that exposes the Windows master volume as a **Matter** smart home device on the local network for other devices to match. A Home Assistant, Google Home, or Apple Home controller can discover, commission, and control the Windows PC volume as if it were a dimmable light — where the *brightness* (level 0–254) maps directly to *volume* (0–100%).
 
 ## Features
 
@@ -9,7 +9,8 @@ Exposes the Windows master volume as a **Matter** smart home device on the local
 - **Two-way control** – Matter controllers can set the volume (Level Control cluster) or mute it (On/Off cluster).
 - **mDNS advertisement** – the device is automatically discoverable via DNS-SD (`_matterc._udp` + `_matter._tcp`).
 - **Matter protocol** – UDP server on port 5540 with standard Interaction Model: Read, Write, Subscribe, and Command operations.
-
+- **Cambridge Audio** - Direct intergration of Cambridge Audio API for Windows -> CA volume sync and source/output/power control.
+- 
 ## Architecture
 
 ```
@@ -89,9 +90,9 @@ The device appears as a **Dimmable Light** where the level (0–100%) controls t
 
 ## Cambridge Audio Integration
 
-VolumeAssistant can optionally connect to a [Cambridge Audio StreamMagic](https://www.cambridgeaudio.com/streammagic) amplifier over your local network, providing bidirectional volume and source control.
+VolumeAssistant can optionally connect to a [Cambridge Audio StreamMagic](https://www.cambridgeaudio.com/streammagic) amplifier over your local network, providing volume and source control.
 
-This integration is a C# port of the Python [aiostreammagic](https://github.com/noahhusby/aiostreammagic) library.
+This integration is a partial C# port of the Python [aiostreammagic](https://github.com/noahhusby/aiostreammagic) library.
 
 ### How it works
 
