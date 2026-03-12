@@ -1,6 +1,6 @@
 ## .NET Build Artifacts
-bin/
-obj/
+*/bin/
+*/obj/
 *.user
 *.suo
 .vs/
