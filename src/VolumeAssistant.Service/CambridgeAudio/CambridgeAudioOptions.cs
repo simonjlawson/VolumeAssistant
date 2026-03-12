@@ -61,6 +61,18 @@ public sealed class CambridgeAudioOptions
     public string? StartOutput { get; set; }
 
     /// <summary>
+    /// When true the service will send a power-on command to the device when it starts and connects.
+    /// Defaults to false.
+    /// </summary>
+    public bool StartPower { get; set; } = false;
+
+    /// <summary>
+    /// When true the service will send a power-off command to the device before shutting down.
+    /// Defaults to false.
+    /// </summary>
+    public bool ClosePower { get; set; } = false;
+
+    /// <summary>
     /// When true (default) Windows volume changes are applied as relative increments/decrements to the
     /// Cambridge Audio device volume instead of setting absolute values.
     /// </summary>

@@ -110,6 +110,19 @@ public sealed class Worker : BackgroundService
                 // After successful connect, apply optional startup settings
                 try
                 {
+                    if (_cambridgeOptions.StartPower)
+                    {
+                        try
+                        {
+                            await _cambridgeAudio.PowerOnAsync(stoppingToken).ConfigureAwait(false);
+                            _logger.LogInformation("Cambridge Audio powered on (StartPower enabled).");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to power on Cambridge Audio device on startup.");
+                        }
+                    }
+
                     if (!string.IsNullOrWhiteSpace(_cambridgeOptions.StartSourceName))
                     {
                         // Find source by name
@@ -161,16 +174,30 @@ public sealed class Worker : BackgroundService
             _matterDevice.DeviceStateChanged -= OnMatterDeviceStateChanged;
         }
 
-        if (_cambridgeAudio != null)
-        {
-            _cambridgeAudio.ConnectionChanged -= OnCambridgeAudioConnectionChanged;
-            if (_cambridgeSyncer != null)
+            if (_cambridgeAudio != null)
             {
-                await _cambridgeSyncer.DisposeAsync();
-                _cambridgeSyncer = null;
+                _cambridgeAudio.ConnectionChanged -= OnCambridgeAudioConnectionChanged;
+                if (_cambridgeSyncer != null)
+                {
+                    await _cambridgeSyncer.DisposeAsync();
+                    _cambridgeSyncer = null;
+                }
+
+                if (_cambridgeOptions.ClosePower)
+                {
+                    try
+                    {
+                        await _cambridgeAudio.PowerOffAsync().ConfigureAwait(false);
+                        _logger.LogInformation("Cambridge Audio powered off (ClosePower enabled).");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to power off Cambridge Audio device on shutdown.");
+                    }
+                }
+
+                await _cambridgeAudio.DisconnectAsync();
             }
-            await _cambridgeAudio.DisconnectAsync();
-        }
 
         if (_matterOptions.Enabled)
         {
