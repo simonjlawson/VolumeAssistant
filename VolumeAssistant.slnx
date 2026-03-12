@@ -1,4 +1,10 @@
 <Solution>
+  <Folder Name="/scripts/">
+    <File Path="scripts/Configure-AppSettings.ps1" />
+    <File Path="scripts/Install-VolumeAssistant.ps1" />
+    <File Path="scripts/Start-VolumeAssistant.ps1" />
+    <File Path="scripts/Stop-VolumeAssistant.ps1" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/VolumeAssistant.Service/VolumeAssistant.Service.csproj" />
   </Folder>
