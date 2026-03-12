@@ -1,8 +1,5 @@
-using System;
-using System.Linq;
-using System.Threading;
-using VolumeAssistant.Service.Audio;
 using Microsoft.Extensions.Options;
+using VolumeAssistant.Service.Audio;
 using VolumeAssistant.Service.CambridgeAudio;
 using VolumeAssistant.Service.Matter;
 using VolumeAssistant.Service.Matter.Clusters;
@@ -35,12 +32,8 @@ public sealed class Worker : BackgroundService
     // Track last known Windows volume percent so we can compute relative deltas
     // when RelativeVolume is enabled.
     private float _lastWindowsVolumePercent;
-    // Pending Cambridge Audio sync request coalescing
-    private readonly object _camSyncLock = new object();
-
-    private int? _pendingCamVolume;
-    private bool? _pendingCamMute;
-    private Task? _processCamSyncTask;
+    // Encapsulated syncer for Windows->CambridgeAudio updates
+    private CambridgeAudioSyncer? _cambridgeSyncer;
 
     public Worker(
         IAudioController audioController,
@@ -106,6 +99,9 @@ public sealed class Worker : BackgroundService
         {
             _cambridgeAudio.ConnectionChanged += OnCambridgeAudioConnectionChanged;
 
+            // Create syncer for coalescing rapid Windows volume changes
+            _cambridgeSyncer = new CambridgeAudioSyncer(_cambridgeAudio, _cambridgeOptions, _logger);
+
             // ConnectAsync runs the reconnect loop in the background
             _ = Task.Run(async () =>
             {
@@ -168,6 +164,11 @@ public sealed class Worker : BackgroundService
         if (_cambridgeAudio != null)
         {
             _cambridgeAudio.ConnectionChanged -= OnCambridgeAudioConnectionChanged;
+            if (_cambridgeSyncer != null)
+            {
+                await _cambridgeSyncer.DisposeAsync();
+                _cambridgeSyncer = null;
+            }
             await _cambridgeAudio.DisconnectAsync();
         }
 
@@ -241,18 +242,7 @@ public sealed class Worker : BackgroundService
 
                     if (desiredCamVolume.HasValue || desiredMute != null)
                     {
-                        lock (_camSyncLock)
-                        {
-                            // overwrite pending values to coalesce rapid events
-                            if (desiredCamVolume.HasValue)
-                                _pendingCamVolume = desiredCamVolume.Value;
-                            _pendingCamMute = desiredMute;
-
-                            if (_processCamSyncTask == null || _processCamSyncTask.IsCompleted)
-                            {
-                                _processCamSyncTask = Task.Run(ProcessPendingCamSyncAsync);
-                            }
-                        }
+                        _cambridgeSyncer?.Enqueue(desiredCamVolume, desiredMute);
                     }
                 }
                 catch (Exception ex)
@@ -266,52 +256,6 @@ public sealed class Worker : BackgroundService
         });
     }
 
-    private async Task ProcessPendingCamSyncAsync()
-    {
-        while (true)
-        {
-            int? volume;
-            bool? mute;
-            lock (_camSyncLock)
-            {
-                volume = _pendingCamVolume;
-                mute = _pendingCamMute;
-                _pendingCamVolume = null;
-                _pendingCamMute = null;
-            }
-
-            if (volume == null && mute == null)
-            {
-                lock (_camSyncLock)
-                {
-                    // no pending work, clear running task marker and exit
-                    _processCamSyncTask = null;
-                }
-                return;
-            }
-
-            try
-            {
-                if (_cambridgeAudio != null && _cambridgeAudio.IsConnected)
-                {
-                    if (volume.HasValue)
-                    {
-                        await _cambridgeAudio.SetVolumeAsync(volume.Value);
-                    }
-                    if (mute.HasValue)
-                    {
-                        await _cambridgeAudio.SetMuteAsync(mute.Value);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to sync Windows volume to Cambridge Audio device.");
-            }
-
-            // loop to pick up any coalesced updates
-        }
-    }
 
     /// <summary>
     /// Handles Matter device state changes (from Matter controller commands)
