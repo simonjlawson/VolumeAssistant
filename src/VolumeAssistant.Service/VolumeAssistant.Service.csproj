@@ -11,6 +11,10 @@
     <!-- Suppress platform compatibility warnings – service is designed for Windows -->
     <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
+  <!-- Application icon for the produced Windows executable -->
+  <PropertyGroup>
+    <ApplicationIcon>Assets\volume.ico</ApplicationIcon>
+  </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Makaretu.Dns" Version="2.0.1" />
@@ -20,6 +24,11 @@
     <!-- Explicit reference required for System.ServiceProcess when running as a Windows Service on .NET 8 -->
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.0" />
     <PackageReference Include="NAudio" Version="2.2.1" />
+  </ItemGroup>
+  <!-- Include the icon file in the project so it is available for builds.
+       Place 'Assets\volume.ico' in the project directory. -->
+  <ItemGroup>
+    <None Include="Assets\volume.ico" />
   </ItemGroup>
 
 </Project>
