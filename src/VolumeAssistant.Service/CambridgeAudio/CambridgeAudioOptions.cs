@@ -8,8 +8,15 @@ public sealed class CambridgeAudioOptions
     public const string SectionName = "CambridgeAudio";
 
     /// <summary>
+    /// Set to true to enable Cambridge Audio integration.
+    /// When true and <see cref="Host"/> is empty, SSDP device discovery will be attempted automatically.
+    /// Defaults to false.
+    /// </summary>
+    public bool Enable { get; set; } = false;
+
+    /// <summary>
     /// Hostname or IP address of the Cambridge Audio device (e.g. "192.168.1.10" or "cambridge-audio.local").
-    /// Leave empty to disable Cambridge Audio integration.
+    /// Leave empty to use automatic SSDP device discovery (requires <see cref="Enable"/> to be true).
     /// </summary>
     public string? Host { get; set; }
 
@@ -40,9 +47,10 @@ public sealed class CambridgeAudioOptions
     public int RequestTimeoutMs { get; set; } = 5_000;
 
     /// <summary>
-    /// Returns true if a host has been configured and Cambridge Audio integration is enabled.
+    /// Returns true if Cambridge Audio integration is enabled (i.e. <see cref="Enable"/> is true).
+    /// When enabled but <see cref="Host"/> is empty, SSDP discovery will be attempted at startup.
     /// </summary>
-    public bool IsEnabled => !string.IsNullOrWhiteSpace(Host);
+    public bool IsEnabled => Enable;
 
     /// <summary>
     /// Optional source name to select when the service starts and connects to the device.

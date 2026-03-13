@@ -4,6 +4,7 @@ Configure-AppSettings.ps1
 Interactively update installed appsettings.json for the VolumeAssistant service.
 Prompts:
  - Matter.Enabled (bool)
+ - CambridgeAudio.Enable (bool)
  - CambridgeAudio.Host (string)
  - CambridgeAudio.StartSourceName (string)
  - CambridgeAudio.StartPower (bool)
@@ -11,7 +12,8 @@ Prompts:
 
 Behavior: pressing Enter sets the value to a sensible default: for boolean
 prompts Enter => false. For string prompts Enter => null (property will be set to
-null).
+null). When CambridgeAudio.Enable is true and Host is left empty, the service
+will attempt automatic SSDP device discovery at startup.
 
 Run as Administrator when the install folder is under Program Files.
 
@@ -105,7 +107,10 @@ function Prompt-String($label, $current) {
 $val = Prompt-Bool 'Matter.Enabled' ($json.Matter.Enabled -as [bool])
 Set-Value -root $json -path @('Matter','Enabled') -value $val
 
-$val = Prompt-String 'CambridgeAudio.Host' ($json.CambridgeAudio.Host)
+$val = Prompt-Bool 'CambridgeAudio.Enable' ($json.CambridgeAudio.Enable -as [bool])
+Set-Value -root $json -path @('CambridgeAudio','Enable') -value $val
+
+$val = Prompt-String 'CambridgeAudio.Host (leave empty to use automatic SSDP discovery)' ($json.CambridgeAudio.Host)
 Set-Value -root $json -path @('CambridgeAudio','Host') -value $val
 
 $val = Prompt-String 'CambridgeAudio.StartSourceName' ($json.CambridgeAudio.StartSourceName)
