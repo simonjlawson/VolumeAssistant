@@ -435,7 +435,21 @@ public sealed class Worker : BackgroundService
         _ = Task.Run(async () =>
         {
             try { await _cambridgeAudio.PlayPauseAsync().ConfigureAwait(false); }
-            catch (Exception ex) { _logger.LogWarning(ex, "Failed to send Play/Pause to Cambridge Audio."); }
+            catch (Exception ex)
+            {
+                // If the device reports a 400 for play control requests, this typically
+                // means the currently selected source doesn't support media key actions.
+                // Log as information rather than an error so it doesn't spam the console.
+                if (ex is VolumeAssistant.Service.CambridgeAudio.CambridgeAudioException &&
+                    ex.Message.Contains("error 400", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogInformation("Play/Pause - Not possible from this source");
+                }
+                else
+                {
+                    _logger.LogWarning(ex, "Failed to send Play/Pause to Cambridge Audio.");
+                }
+            }
         });
     }
 
@@ -449,7 +463,18 @@ public sealed class Worker : BackgroundService
         _ = Task.Run(async () =>
         {
             try { await _cambridgeAudio.NextTrackAsync().ConfigureAwait(false); }
-            catch (Exception ex) { _logger.LogWarning(ex, "Failed to send Next Track to Cambridge Audio."); }
+            catch (Exception ex)
+            {
+                if (ex is VolumeAssistant.Service.CambridgeAudio.CambridgeAudioException &&
+                    ex.Message.Contains("error 400", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogInformation("Next Track - Not possible from this source");
+                }
+                else
+                {
+                    _logger.LogWarning(ex, "Failed to send Next Track to Cambridge Audio.");
+                }
+            }
         });
     }
 
@@ -463,7 +488,18 @@ public sealed class Worker : BackgroundService
         _ = Task.Run(async () =>
         {
             try { await _cambridgeAudio.PreviousTrackAsync().ConfigureAwait(false); }
-            catch (Exception ex) { _logger.LogWarning(ex, "Failed to send Previous Track to Cambridge Audio."); }
+            catch (Exception ex)
+            {
+                if (ex is VolumeAssistant.Service.CambridgeAudio.CambridgeAudioException &&
+                    ex.Message.Contains("error 400", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogInformation("Previous Track - Not possible from this source");
+                }
+                else
+                {
+                    _logger.LogWarning(ex, "Failed to send Previous Track to Cambridge Audio.");
+                }
+            }
         });
     }
 
