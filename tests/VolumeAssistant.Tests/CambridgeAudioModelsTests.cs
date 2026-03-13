@@ -352,6 +352,9 @@ file sealed class TestNullClient : ICambridgeAudioClient
     public Task SetAudioOutputAsync(string output, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task PowerOnAsync(CancellationToken ct = default) => Task.CompletedTask;
     public Task PowerOffAsync(CancellationToken ct = default) => Task.CompletedTask;
+    public Task PlayPauseAsync(CancellationToken ct = default) => Task.CompletedTask;
+    public Task NextTrackAsync(CancellationToken ct = default) => Task.CompletedTask;
+    public Task PreviousTrackAsync(CancellationToken ct = default) => Task.CompletedTask;
 
     public Task<CambridgeAudioState> GetStateAsync(CancellationToken ct = default)
         => Task.FromResult(new CambridgeAudioState());

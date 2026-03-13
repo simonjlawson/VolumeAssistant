@@ -36,6 +36,8 @@ public sealed class Worker : BackgroundService
     private CambridgeAudioSyncer? _cambridgeSyncer;
     // Handler delegate used to add/remove SystemEvents subscription via reflection
     private Delegate? _powerModeHandler;
+    // Optional media key listener for forwarding OS media keys to Cambridge Audio
+    private MediaKeyListener? _mediaKeyListener;
 
     public Worker(
         IAudioController audioController,
@@ -175,6 +177,17 @@ public sealed class Worker : BackgroundService
             }, stoppingToken);
 
             _logger.LogInformation("Cambridge Audio integration ready!");
+
+            // Start media key listener if enabled
+            if (_cambridgeOptions.MediaKeysEnabled)
+            {
+                _mediaKeyListener = new MediaKeyListener();
+                _mediaKeyListener.PlayPausePressed += OnMediaKeyPlayPause;
+                _mediaKeyListener.NextTrackPressed += OnMediaKeyNextTrack;
+                _mediaKeyListener.PreviousTrackPressed += OnMediaKeyPreviousTrack;
+                _mediaKeyListener.Start();
+                _logger.LogInformation("Media key listener started (Play/Pause, Next, Previous forwarded to Cambridge Audio).");
+            }
         }
 
         // Keep alive until cancellation
@@ -225,6 +238,16 @@ public sealed class Worker : BackgroundService
                 }
 
                 await _cambridgeAudio.DisconnectAsync();
+
+                // Dispose media key listener
+                if (_mediaKeyListener != null)
+                {
+                    _mediaKeyListener.PlayPausePressed -= OnMediaKeyPlayPause;
+                    _mediaKeyListener.NextTrackPressed -= OnMediaKeyNextTrack;
+                    _mediaKeyListener.PreviousTrackPressed -= OnMediaKeyPreviousTrack;
+                    _mediaKeyListener.Dispose();
+                    _mediaKeyListener = null;
+                }
             }
 
         if (_matterOptions.Enabled)
@@ -400,6 +423,84 @@ public sealed class Worker : BackgroundService
         _logger.LogInformation(
             "Cambridge Audio device connection state: {State}",
             e.IsConnected ? "Connected" : "Disconnected");
+    }
+
+    /// <summary>
+    /// Handles the Play/Pause media key press and forwards it to the Cambridge Audio device.
+    /// </summary>
+    private void OnMediaKeyPlayPause(object? sender, EventArgs e)
+    {
+        if (_cambridgeAudio == null || !_cambridgeAudio.IsConnected) return;
+        _logger.LogInformation("Media key: Play/Pause → Cambridge Audio");
+        _ = Task.Run(async () =>
+        {
+            try { await _cambridgeAudio.PlayPauseAsync().ConfigureAwait(false); }
+            catch (Exception ex)
+            {
+                // If the device reports a 400 for play control requests, this typically
+                // means the currently selected source doesn't support media key actions.
+                // Log as information rather than an error so it doesn't spam the console.
+                if (ex is VolumeAssistant.Service.CambridgeAudio.CambridgeAudioException &&
+                    ex.Message.Contains("error 400", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogInformation("Play/Pause - Not possible from this source");
+                }
+                else
+                {
+                    _logger.LogWarning(ex, "Failed to send Play/Pause to Cambridge Audio.");
+                }
+            }
+        });
+    }
+
+    /// <summary>
+    /// Handles the Next Track media key press and forwards it to the Cambridge Audio device.
+    /// </summary>
+    private void OnMediaKeyNextTrack(object? sender, EventArgs e)
+    {
+        if (_cambridgeAudio == null || !_cambridgeAudio.IsConnected) return;
+        _logger.LogInformation("Media key: Next Track → Cambridge Audio");
+        _ = Task.Run(async () =>
+        {
+            try { await _cambridgeAudio.NextTrackAsync().ConfigureAwait(false); }
+            catch (Exception ex)
+            {
+                if (ex is VolumeAssistant.Service.CambridgeAudio.CambridgeAudioException &&
+                    ex.Message.Contains("error 400", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogInformation("Next Track - Not possible from this source");
+                }
+                else
+                {
+                    _logger.LogWarning(ex, "Failed to send Next Track to Cambridge Audio.");
+                }
+            }
+        });
+    }
+
+    /// <summary>
+    /// Handles the Previous Track media key press and forwards it to the Cambridge Audio device.
+    /// </summary>
+    private void OnMediaKeyPreviousTrack(object? sender, EventArgs e)
+    {
+        if (_cambridgeAudio == null || !_cambridgeAudio.IsConnected) return;
+        _logger.LogInformation("Media key: Previous Track → Cambridge Audio");
+        _ = Task.Run(async () =>
+        {
+            try { await _cambridgeAudio.PreviousTrackAsync().ConfigureAwait(false); }
+            catch (Exception ex)
+            {
+                if (ex is VolumeAssistant.Service.CambridgeAudio.CambridgeAudioException &&
+                    ex.Message.Contains("error 400", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogInformation("Previous Track - Not possible from this source");
+                }
+                else
+                {
+                    _logger.LogWarning(ex, "Failed to send Previous Track to Cambridge Audio.");
+                }
+            }
+        });
     }
 
     // Internal handler invoked via a reflection-created delegate. We intentionally

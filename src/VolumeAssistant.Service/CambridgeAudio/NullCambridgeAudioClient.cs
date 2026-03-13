@@ -31,6 +31,9 @@ internal sealed class NullCambridgeAudioClient : ICambridgeAudioClient
     public Task SetAudioOutputAsync(string output, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task PowerOnAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task PowerOffAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public Task PlayPauseAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public Task NextTrackAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public Task PreviousTrackAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     public Task<CambridgeAudioState> GetStateAsync(CancellationToken cancellationToken = default)
         => Task.FromResult(new CambridgeAudioState());

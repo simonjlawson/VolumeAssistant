@@ -24,6 +24,7 @@ public sealed class CambridgeAudioClient : ICambridgeAudioClient
     private const string EndpointSources = "/system/sources";
     private const string EndpointZoneState = "/zone/state";
     private const string EndpointPower = "/system/power";
+    private const string EndpointPlayControl = "/zone/play_control";
 
     private readonly CambridgeAudioOptions _options;
     private readonly ILogger<CambridgeAudioClient> _logger;
@@ -316,6 +317,33 @@ public sealed class CambridgeAudioClient : ICambridgeAudioClient
         await RequestAsync(
             EndpointPower,
             new Dictionary<string, object?> { ["power"] = "NETWORK" },
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task PlayPauseAsync(CancellationToken cancellationToken = default)
+    {
+        await RequestAsync(
+            EndpointPlayControl,
+            new Dictionary<string, object?> { ["match"] = "none", ["zone"] = _options.Zone, ["action"] = "toggle" },
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task NextTrackAsync(CancellationToken cancellationToken = default)
+    {
+        await RequestAsync(
+            EndpointPlayControl,
+            new Dictionary<string, object?> { ["match"] = "none", ["zone"] = _options.Zone, ["skip_track"] = 1 },
+            cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task PreviousTrackAsync(CancellationToken cancellationToken = default)
+    {
+        await RequestAsync(
+            EndpointPlayControl,
+            new Dictionary<string, object?> { ["match"] = "none", ["zone"] = _options.Zone, ["skip_track"] = -1 },
             cancellationToken);
     }
 
