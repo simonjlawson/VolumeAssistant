@@ -34,6 +34,8 @@ public sealed class Worker : BackgroundService
     private float _lastWindowsVolumePercent;
     // Encapsulated syncer for Windows->CambridgeAudio updates
     private CambridgeAudioSyncer? _cambridgeSyncer;
+    // Handler delegate used to add/remove SystemEvents subscription via reflection
+    private Delegate? _powerModeHandler;
 
     public Worker(
         IAudioController audioController,
@@ -77,6 +79,19 @@ public sealed class Worker : BackgroundService
 
         // Subscribe to Windows volume change events
         _audioController.VolumeChanged += OnWindowsVolumeChanged;
+
+        // Subscribe to system power mode changes (use reflection to avoid a
+        // hard dependency on Microsoft.Win32.SystemEvents types at compile time).
+        if (_cambridgeAudio != null)
+        {
+            var powerEvent = Type.GetType("Microsoft.Win32.SystemEvents, Microsoft.Win32.SystemEvents")?.GetEvent("PowerModeChanged");
+            if (powerEvent != null)
+            {
+                var handlerMethod = typeof(Worker).GetMethod("OnPowerModeChangedInternal", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+                _powerModeHandler = Delegate.CreateDelegate(powerEvent.EventHandlerType!, this, handlerMethod);
+                powerEvent.AddEventHandler(null, _powerModeHandler);
+            }
+        }
 
         // Subscribe to Matter device state changes (from Matter controller commands)
         if (_matterOptions.Enabled)
@@ -186,6 +201,14 @@ public sealed class Worker : BackgroundService
                 {
                     await _cambridgeSyncer.DisposeAsync();
                     _cambridgeSyncer = null;
+                }
+
+                // Unsubscribe from system power events if we created a handler
+                if (_powerModeHandler != null)
+                {
+                    var powerEvent = Type.GetType("Microsoft.Win32.SystemEvents, Microsoft.Win32.SystemEvents")?.GetEvent("PowerModeChanged");
+                    powerEvent?.RemoveEventHandler(null, _powerModeHandler);
+                    _powerModeHandler = null;
                 }
 
                 if (_cambridgeOptions.ClosePower)
@@ -377,6 +400,53 @@ public sealed class Worker : BackgroundService
         _logger.LogInformation(
             "Cambridge Audio device connection state: {State}",
             e.IsConnected ? "Connected" : "Disconnected");
+    }
+
+    // Internal handler invoked via a reflection-created delegate. We intentionally
+    // use EventArgs to avoid a compile-time dependency on Microsoft.Win32 types.
+    private void OnPowerModeChangedInternal(object? sender, EventArgs e)
+    {
+        // Run asynchronously to avoid blocking the event thread.
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                // Inspect the 'Mode' property of the event args using reflection so
+                // we don't need to reference the PowerModes enum at compile time.
+                var modeProp = e?.GetType().GetProperty("Mode");
+                var modeName = modeProp?.GetValue(e)?.ToString();
+
+                if (modeName == "Resume" && _cambridgeAudio != null && _cambridgeOptions.StartPower)
+                {
+                    try
+                    {
+                        await _cambridgeAudio.PowerOnAsync().ConfigureAwait(false);
+                        _logger.LogInformation("Cambridge Audio powered on (System resume, StartPower enabled).");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to power on Cambridge Audio device on system resume.");
+                    }
+                }
+
+                if (modeName == "Suspend" && _cambridgeAudio != null && _cambridgeOptions.ClosePower)
+                {
+                    try
+                    {
+                        await _cambridgeAudio.PowerOffAsync().ConfigureAwait(false);
+                        _logger.LogInformation("Cambridge Audio powered off (System suspend, ClosePower enabled).");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to power off Cambridge Audio device on system suspend.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error handling system power mode change.");
+            }
+        });
     }
 
     /// <summary>
