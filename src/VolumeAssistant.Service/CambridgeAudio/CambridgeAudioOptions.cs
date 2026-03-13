@@ -103,19 +103,12 @@ public sealed class CambridgeAudioOptions
     public bool MediaKeysEnabled { get; set; } = false;
 
     /// <summary>
-    /// When true, one of the media keys (see <see cref="SourceSwitchingKey"/>) will cycle through
+    /// When true, Shift+SCRLK will cycle through
     /// the sources listed in <see cref="SourceSwitchingNames"/> instead of sending a transport
     /// control command. Requires <see cref="MediaKeysEnabled"/> to be true.
     /// Defaults to false.
     /// </summary>
     public bool SourceSwitchingEnabled { get; set; } = false;
-
-    /// <summary>
-    /// The media key that cycles through sources when <see cref="SourceSwitchingEnabled"/> is true.
-    /// Valid values (case-insensitive): "PlayPause", "NextTrack", "PreviousTrack".
-    /// Defaults to "NextTrack".
-    /// </summary>
-    public string SourceSwitchingKey { get; set; } = "NextTrack";
 
     /// <summary>
     /// Comma-separated list of source names to cycle through when <see cref="SourceSwitchingEnabled"/>

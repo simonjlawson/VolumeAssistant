@@ -20,6 +20,8 @@ internal sealed class MediaKeyListener : IDisposable
     private const uint VK_MEDIA_NEXT_TRACK = 0xB0;
     private const uint VK_MEDIA_PREV_TRACK = 0xB1;
     private const uint VK_MEDIA_PLAY_PAUSE = 0xB3;
+    // Scroll Lock
+    private const uint VK_SCROLL = 0x91;
 
     private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
 
@@ -81,6 +83,10 @@ internal sealed class MediaKeyListener : IDisposable
         public IntPtr dwExtraInfo;
     }
 
+    [DllImport("user32.dll")]
+    [SupportedOSPlatform("windows")]
+    private static extern short GetAsyncKeyState(int vKey);
+
     private Thread? _thread;
     private volatile uint _threadId;
     private IntPtr _hookHandle = IntPtr.Zero;
@@ -96,6 +102,9 @@ internal sealed class MediaKeyListener : IDisposable
 
     /// <summary>Raised when the Previous Track media key is pressed.</summary>
     public event EventHandler? PreviousTrackPressed;
+
+    /// <summary>Raised when Shift+ScrollLock is pressed to request source switching.</summary>
+    public event EventHandler? SourceSwitchRequested;
 
     /// <summary>
     /// Starts the media key listener on a background thread.
@@ -148,6 +157,24 @@ internal sealed class MediaKeyListener : IDisposable
                     break;
                 case VK_MEDIA_PREV_TRACK:
                     PreviousTrackPressed?.Invoke(this, EventArgs.Empty);
+                    break;
+                case VK_SCROLL:
+                    try
+                    {
+                        // Check if either Shift key is currently down; GetAsyncKeyState returns
+                        // a short where the high-order bit is set when the key is down.
+                        const int VK_SHIFT = 0x10;
+                        short state = GetAsyncKeyState(VK_SHIFT);
+                        bool shiftDown = (state & 0x8000) != 0;
+                        if (shiftDown)
+                        {
+                            SourceSwitchRequested?.Invoke(this, EventArgs.Empty);
+                        }
+                    }
+                    catch
+                    {
+                        // Don't let an error here crash the hook thread; ignore.
+                    }
                     break;
             }
         }

@@ -24,12 +24,6 @@ namespace VolumeAssistant.Tests
             Assert.False(options.SourceSwitchingEnabled);
         }
 
-        [Fact]
-        public void SourceSwitchingKey_DefaultsToNextTrack()
-        {
-            var options = new CambridgeAudioOptions();
-            Assert.Equal("NextTrack", options.SourceSwitchingKey);
-        }
 
         [Fact]
         public void SourceSwitchingNames_DefaultsToNull()
@@ -45,12 +39,6 @@ namespace VolumeAssistant.Tests
             Assert.True(options.SourceSwitchingEnabled);
         }
 
-        [Fact]
-        public void SourceSwitchingKey_CanBeConfigured()
-        {
-            var options = new CambridgeAudioOptions { SourceSwitchingKey = "PlayPause" };
-            Assert.Equal("PlayPause", options.SourceSwitchingKey);
-        }
 
         [Fact]
         public void SourceSwitchingNames_CanBeConfigured()
@@ -140,15 +128,15 @@ namespace VolumeAssistant.Tests
             var options = new CambridgeAudioOptions
             {
                 SourceSwitchingEnabled = true,
-                SourceSwitchingKey = "NextTrack",
                 SourceSwitchingNames = "PC,TV"
             };
             var (worker, cam) = CreateWorkerWithOptions(options);
             cam.Sources = MakeSources(("pc_usb", "PC"), ("tv_arc", "TV"));
             cam.State = new CambridgeAudioState { Source = "pc_usb" };
 
+            // Trigger source switching via the dedicated event (Shift+ScrollLock)
             var handler = typeof(Worker).GetMethod(
-                "OnMediaKeyNextTrack",
+                "OnMediaKeySourceSwitchRequested",
                 BindingFlags.NonPublic | BindingFlags.Instance)!;
 
             handler.Invoke(worker, new object?[] { null, EventArgs.Empty });
@@ -166,7 +154,6 @@ namespace VolumeAssistant.Tests
             var options = new CambridgeAudioOptions
             {
                 SourceSwitchingEnabled = true,
-                SourceSwitchingKey = "NextTrack",
                 SourceSwitchingNames = "PC,TV"
             };
             var (worker, cam) = CreateWorkerWithOptions(options);
@@ -175,7 +162,7 @@ namespace VolumeAssistant.Tests
             cam.State = new CambridgeAudioState { Source = "tv_arc" };
 
             var handler = typeof(Worker).GetMethod(
-                "OnMediaKeyNextTrack",
+                "OnMediaKeySourceSwitchRequested",
                 BindingFlags.NonPublic | BindingFlags.Instance)!;
 
             handler.Invoke(worker, new object?[] { null, EventArgs.Empty });
@@ -191,7 +178,6 @@ namespace VolumeAssistant.Tests
             var options = new CambridgeAudioOptions
             {
                 SourceSwitchingEnabled = true,
-                SourceSwitchingKey = "NextTrack",
                 SourceSwitchingNames = "PC,TV"
             };
             var (worker, cam) = CreateWorkerWithOptions(options);
@@ -200,7 +186,7 @@ namespace VolumeAssistant.Tests
             cam.State = new CambridgeAudioState { Source = "spotify" };
 
             var handler = typeof(Worker).GetMethod(
-                "OnMediaKeyNextTrack",
+                "OnMediaKeySourceSwitchRequested",
                 BindingFlags.NonPublic | BindingFlags.Instance)!;
 
             handler.Invoke(worker, new object?[] { null, EventArgs.Empty });
@@ -216,7 +202,6 @@ namespace VolumeAssistant.Tests
             var options = new CambridgeAudioOptions
             {
                 SourceSwitchingEnabled = true,
-                SourceSwitchingKey = "NextTrack",
                 SourceSwitchingNames = null
             };
             var (worker, cam) = CreateWorkerWithOptions(options);
@@ -224,7 +209,7 @@ namespace VolumeAssistant.Tests
             cam.State = new CambridgeAudioState { Source = "pc_usb" };
 
             var handler = typeof(Worker).GetMethod(
-                "OnMediaKeyNextTrack",
+                "OnMediaKeySourceSwitchRequested",
                 BindingFlags.NonPublic | BindingFlags.Instance)!;
 
             handler.Invoke(worker, new object?[] { null, EventArgs.Empty });
@@ -242,7 +227,6 @@ namespace VolumeAssistant.Tests
             var options = new CambridgeAudioOptions
             {
                 SourceSwitchingEnabled = true,
-                SourceSwitchingKey = "PlayPause",
                 SourceSwitchingNames = "PC,TV"
             };
             var (worker, cam) = CreateWorkerWithOptions(options);
@@ -250,7 +234,7 @@ namespace VolumeAssistant.Tests
             cam.State = new CambridgeAudioState { Source = "pc_usb" };
 
             var handler = typeof(Worker).GetMethod(
-                "OnMediaKeyPlayPause",
+                "OnMediaKeySourceSwitchRequested",
                 BindingFlags.NonPublic | BindingFlags.Instance)!;
 
             handler.Invoke(worker, new object?[] { null, EventArgs.Empty });
@@ -269,7 +253,6 @@ namespace VolumeAssistant.Tests
             var options = new CambridgeAudioOptions
             {
                 SourceSwitchingEnabled = true,
-                SourceSwitchingKey = "PreviousTrack",
                 SourceSwitchingNames = "PC,TV"
             };
             var (worker, cam) = CreateWorkerWithOptions(options);
@@ -277,7 +260,7 @@ namespace VolumeAssistant.Tests
             cam.State = new CambridgeAudioState { Source = "pc_usb" };
 
             var handler = typeof(Worker).GetMethod(
-                "OnMediaKeyPreviousTrack",
+                "OnMediaKeySourceSwitchRequested",
                 BindingFlags.NonPublic | BindingFlags.Instance)!;
 
             handler.Invoke(worker, new object?[] { null, EventArgs.Empty });
@@ -296,7 +279,6 @@ namespace VolumeAssistant.Tests
             var options = new CambridgeAudioOptions
             {
                 SourceSwitchingEnabled = true,
-                SourceSwitchingKey = "PlayPause",   // switching key is PlayPause, not NextTrack
                 SourceSwitchingNames = "PC,TV"
             };
             var (worker, cam) = CreateWorkerWithOptions(options);
@@ -321,7 +303,6 @@ namespace VolumeAssistant.Tests
             var options = new CambridgeAudioOptions
             {
                 SourceSwitchingEnabled = false,
-                SourceSwitchingKey = "PlayPause",
                 SourceSwitchingNames = "PC,TV"
             };
             var (worker, cam) = CreateWorkerWithOptions(options);
@@ -347,7 +328,6 @@ namespace VolumeAssistant.Tests
             var options = new CambridgeAudioOptions
             {
                 SourceSwitchingEnabled = true,
-                SourceSwitchingKey = "NextTrack",
                 SourceSwitchingNames = "pc,tv"          // lower-case in config
             };
             var (worker, cam) = CreateWorkerWithOptions(options);
@@ -355,7 +335,7 @@ namespace VolumeAssistant.Tests
             cam.State = new CambridgeAudioState { Source = "pc_usb" };
 
             var handler = typeof(Worker).GetMethod(
-                "OnMediaKeyNextTrack",
+                "OnMediaKeySourceSwitchRequested",
                 BindingFlags.NonPublic | BindingFlags.Instance)!;
 
             handler.Invoke(worker, new object?[] { null, EventArgs.Empty });
@@ -373,7 +353,6 @@ namespace VolumeAssistant.Tests
             var options = new CambridgeAudioOptions
             {
                 SourceSwitchingEnabled = true,
-                SourceSwitchingKey = "nexttrack",   // lower-case
                 SourceSwitchingNames = "PC,TV"
             };
             var (worker, cam) = CreateWorkerWithOptions(options);
@@ -381,7 +360,7 @@ namespace VolumeAssistant.Tests
             cam.State = new CambridgeAudioState { Source = "pc_usb" };
 
             var handler = typeof(Worker).GetMethod(
-                "OnMediaKeyNextTrack",
+                "OnMediaKeySourceSwitchRequested",
                 BindingFlags.NonPublic | BindingFlags.Instance)!;
 
             handler.Invoke(worker, new object?[] { null, EventArgs.Empty });
@@ -399,7 +378,6 @@ namespace VolumeAssistant.Tests
             var options = new CambridgeAudioOptions
             {
                 SourceSwitchingEnabled = true,
-                SourceSwitchingKey = "NextTrack",
                 SourceSwitchingNames = " PC , TV "   // names with surrounding spaces
             };
             var (worker, cam) = CreateWorkerWithOptions(options);
@@ -407,7 +385,7 @@ namespace VolumeAssistant.Tests
             cam.State = new CambridgeAudioState { Source = "pc_usb" };
 
             var handler = typeof(Worker).GetMethod(
-                "OnMediaKeyNextTrack",
+                "OnMediaKeySourceSwitchRequested",
                 BindingFlags.NonPublic | BindingFlags.Instance)!;
 
             handler.Invoke(worker, new object?[] { null, EventArgs.Empty });
@@ -425,16 +403,14 @@ namespace VolumeAssistant.Tests
             var options = new CambridgeAudioOptions
             {
                 SourceSwitchingEnabled = true,
-                SourceSwitchingKey = "NextTrack",
                 SourceSwitchingNames = "PC,TV"
             };
             var (worker, cam) = CreateWorkerWithOptions(options);
             cam.IsConnected = false;
             cam.Sources = MakeSources(("pc_usb", "PC"), ("tv_arc", "TV"));
             cam.State = new CambridgeAudioState { Source = "pc_usb" };
-
             var handler = typeof(Worker).GetMethod(
-                "OnMediaKeyNextTrack",
+                "OnMediaKeySourceSwitchRequested",
                 BindingFlags.NonPublic | BindingFlags.Instance)!;
 
             handler.Invoke(worker, new object?[] { null, EventArgs.Empty });
@@ -452,7 +428,6 @@ namespace VolumeAssistant.Tests
             var options = new CambridgeAudioOptions
             {
                 SourceSwitchingEnabled = true,
-                SourceSwitchingKey = "NextTrack",
                 SourceSwitchingNames = "PC,HDMI"   // HDMI not available on device
             };
             var (worker, cam) = CreateWorkerWithOptions(options);
@@ -460,7 +435,7 @@ namespace VolumeAssistant.Tests
             cam.State = new CambridgeAudioState { Source = "pc_usb" };
 
             var handler = typeof(Worker).GetMethod(
-                "OnMediaKeyNextTrack",
+                "OnMediaKeySourceSwitchRequested",
                 BindingFlags.NonPublic | BindingFlags.Instance)!;
 
             var exception = Record.Exception(() =>

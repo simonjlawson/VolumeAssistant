@@ -185,6 +185,7 @@ public sealed class Worker : BackgroundService
                 _mediaKeyListener.PlayPausePressed += OnMediaKeyPlayPause;
                 _mediaKeyListener.NextTrackPressed += OnMediaKeyNextTrack;
                 _mediaKeyListener.PreviousTrackPressed += OnMediaKeyPreviousTrack;
+                _mediaKeyListener.SourceSwitchRequested += OnMediaKeySourceSwitchRequested;
                 _mediaKeyListener.Start();
                 _logger.LogInformation("Media key listener started (Play/Pause, Next, Previous forwarded to Cambridge Audio).");
             }
@@ -245,6 +246,7 @@ public sealed class Worker : BackgroundService
                     _mediaKeyListener.PlayPausePressed -= OnMediaKeyPlayPause;
                     _mediaKeyListener.NextTrackPressed -= OnMediaKeyNextTrack;
                     _mediaKeyListener.PreviousTrackPressed -= OnMediaKeyPreviousTrack;
+                    _mediaKeyListener.SourceSwitchRequested -= OnMediaKeySourceSwitchRequested;
                     _mediaKeyListener.Dispose();
                     _mediaKeyListener = null;
                 }
@@ -427,17 +429,10 @@ public sealed class Worker : BackgroundService
 
     /// <summary>
     /// Handles the Play/Pause media key press and forwards it to the Cambridge Audio device.
-    /// If source switching is enabled and configured to use this key, cycles through sources instead.
     /// </summary>
     private void OnMediaKeyPlayPause(object? sender, EventArgs e)
     {
         if (_cambridgeAudio == null || !_cambridgeAudio.IsConnected) return;
-        if (_cambridgeOptions.SourceSwitchingEnabled &&
-            "playpause".Equals(_cambridgeOptions.SourceSwitchingKey, StringComparison.OrdinalIgnoreCase))
-        {
-            _ = Task.Run(async () => await CycleSourceAsync().ConfigureAwait(false));
-            return;
-        }
         _logger.LogInformation("Media key: Play/Pause → Cambridge Audio");
         _ = Task.Run(async () =>
         {
@@ -461,18 +456,24 @@ public sealed class Worker : BackgroundService
     }
 
     /// <summary>
+    /// Handles the Shift+ScrollLock combination requested by the MediaKeyListener and triggers
+    /// source cycling if enabled in the configuration.
+    /// </summary>
+    private void OnMediaKeySourceSwitchRequested(object? sender, EventArgs e)
+    {
+        if (_cambridgeAudio == null || !_cambridgeAudio.IsConnected) return;
+        if (!_cambridgeOptions.SourceSwitchingEnabled) return;
+
+        _ = Task.Run(async () => await CycleSourceAsync().ConfigureAwait(false));
+    }
+
+    /// <summary>
     /// Handles the Next Track media key press and forwards it to the Cambridge Audio device.
     /// If source switching is enabled and configured to use this key, cycles through sources instead.
     /// </summary>
     private void OnMediaKeyNextTrack(object? sender, EventArgs e)
     {
         if (_cambridgeAudio == null || !_cambridgeAudio.IsConnected) return;
-        if (_cambridgeOptions.SourceSwitchingEnabled &&
-            "nexttrack".Equals(_cambridgeOptions.SourceSwitchingKey, StringComparison.OrdinalIgnoreCase))
-        {
-            _ = Task.Run(async () => await CycleSourceAsync().ConfigureAwait(false));
-            return;
-        }
         _logger.LogInformation("Media key: Next Track → Cambridge Audio");
         _ = Task.Run(async () =>
         {
@@ -499,12 +500,6 @@ public sealed class Worker : BackgroundService
     private void OnMediaKeyPreviousTrack(object? sender, EventArgs e)
     {
         if (_cambridgeAudio == null || !_cambridgeAudio.IsConnected) return;
-        if (_cambridgeOptions.SourceSwitchingEnabled &&
-            "previoustrack".Equals(_cambridgeOptions.SourceSwitchingKey, StringComparison.OrdinalIgnoreCase))
-        {
-            _ = Task.Run(async () => await CycleSourceAsync().ConfigureAwait(false));
-            return;
-        }
         _logger.LogInformation("Media key: Previous Track → Cambridge Audio");
         _ = Task.Run(async () =>
         {
