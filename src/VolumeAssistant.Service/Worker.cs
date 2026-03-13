@@ -257,14 +257,14 @@ public sealed class Worker : BackgroundService
                             }
                             else
                             {
-                                desiredCamVolume = (int)Math.Round(e.VolumePercent);
+                                desiredCamVolume = (int)Math.Round(WindowsToCambridgeVolume(e.VolumePercent));
                             }
                             desiredCamVolume = Math.Clamp(desiredCamVolume.Value, 0, 100);
                         }
                     }
                     else
                     {
-                        desiredCamVolume = (int)Math.Round(e.VolumePercent);
+                        desiredCamVolume = (int)Math.Round(WindowsToCambridgeVolume(e.VolumePercent));
                     }
 
                     if (desiredCamVolume.HasValue || desiredMute != null)
@@ -352,7 +352,7 @@ public sealed class Worker : BackgroundService
             Interlocked.Increment(ref _suppressWindowsVolumeChangeCount);
             try
             {
-                _audioController.SetVolumePercent(state.VolumePercent.Value);
+                _audioController.SetVolumePercent(CambridgeToWindowsVolume(state.VolumePercent.Value));
                 _audioController.SetMuted(state.Mute);
             }
             catch (Exception ex)
@@ -372,5 +372,33 @@ public sealed class Worker : BackgroundService
         _logger.LogInformation(
             "Cambridge Audio device connection state: {State}",
             e.IsConnected ? "Connected" : "Disconnected");
+    }
+
+    /// <summary>
+    /// Scales a Windows volume percentage (0–100) to a Cambridge Audio volume percentage (0–100),
+    /// applying <see cref="CambridgeAudioOptions.MaxVolume"/> scaling when configured.
+    /// </summary>
+    private float WindowsToCambridgeVolume(float windowsPercent)
+    {
+        if (_cambridgeOptions.MaxVolume.HasValue)
+        {
+            return (float)(windowsPercent / 100.0 * _cambridgeOptions.MaxVolume.Value);
+        }
+        return windowsPercent;
+    }
+
+    /// <summary>
+    /// Scales a Cambridge Audio volume percentage (0–100) back to a Windows volume percentage (0–100),
+    /// applying the inverse of <see cref="CambridgeAudioOptions.MaxVolume"/> scaling when configured.
+    /// </summary>
+    private float CambridgeToWindowsVolume(float cambridgePercent)
+    {
+        if (_cambridgeOptions.MaxVolume.HasValue)
+        {
+            if (_cambridgeOptions.MaxVolume.Value <= 0)
+                return 0f;
+            return (float)(cambridgePercent / _cambridgeOptions.MaxVolume.Value * 100.0);
+        }
+        return cambridgePercent;
     }
 }
