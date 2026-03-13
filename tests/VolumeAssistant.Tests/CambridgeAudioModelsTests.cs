@@ -196,23 +196,37 @@ public class CambridgeAudioModelsTests
     // ── CambridgeAudioOptions ────────────────────────────────────────────────
 
     [Fact]
-    public void CambridgeAudioOptions_IsEnabled_WhenHostSet()
+    public void CambridgeAudioOptions_IsEnabled_WhenEnableTrue()
     {
-        var options = new CambridgeAudioOptions { Host = "192.168.1.10" };
+        var options = new CambridgeAudioOptions { Enable = true };
         Assert.True(options.IsEnabled);
     }
 
     [Fact]
-    public void CambridgeAudioOptions_IsDisabled_WhenHostEmpty()
+    public void CambridgeAudioOptions_IsEnabled_WhenEnableTrueAndHostSet()
     {
-        var options = new CambridgeAudioOptions { Host = "" };
+        var options = new CambridgeAudioOptions { Enable = true, Host = "192.168.1.10" };
+        Assert.True(options.IsEnabled);
+    }
+
+    [Fact]
+    public void CambridgeAudioOptions_IsDisabled_WhenEnableFalse()
+    {
+        var options = new CambridgeAudioOptions { Enable = false };
         Assert.False(options.IsEnabled);
     }
 
     [Fact]
-    public void CambridgeAudioOptions_IsDisabled_WhenHostNull()
+    public void CambridgeAudioOptions_IsDisabled_WhenEnableFalseEvenWithHost()
     {
-        var options = new CambridgeAudioOptions { Host = null };
+        var options = new CambridgeAudioOptions { Enable = false, Host = "192.168.1.10" };
+        Assert.False(options.IsEnabled);
+    }
+
+    [Fact]
+    public void CambridgeAudioOptions_IsDisabled_ByDefault()
+    {
+        var options = new CambridgeAudioOptions();
         Assert.False(options.IsEnabled);
     }
 
@@ -220,6 +234,7 @@ public class CambridgeAudioModelsTests
     public void CambridgeAudioOptions_DefaultValues_AreReasonable()
     {
         var options = new CambridgeAudioOptions();
+        Assert.False(options.Enable);
         Assert.Equal(80, options.Port);
         Assert.Equal("ZONE1", options.Zone);
         Assert.Equal(500, options.InitialReconnectDelayMs);

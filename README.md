@@ -151,14 +151,28 @@ When Cambridge Audio integration is enabled, the service keeps the Windows maste
 
 ### Configuration
 
-Set the `CambridgeAudio:Host` value in `appsettings.json` (or via environment variable / Windows Service secrets):
+Enable the integration with `CambridgeAudio:Enable` in `appsettings.json`. If `Host` is left empty, the service will automatically discover StreamMagic devices on your local network at startup using SSDP.
 
 ```json
 {
   "CambridgeAudio": {
-    "Host": "192.168.1.10",
+    "Enable": true,
+    "Host": "",
     "Port": 80,
     "Zone": "ZONE1"
+  }
+}
+```
+
+Specify `Host` to connect to a particular device directly (skipping discovery):
+
+```json
+{
+  "CambridgeAudio": {
+    "Enable": true,
+    "Host": "192.168.1.10",
+    "Port": 80,
+    "Zone": "ZONE1",
     "StartPower": false,
     "ClosePower": false,
     "StartVolume": "10",
@@ -168,12 +182,18 @@ Set the `CambridgeAudio:Host` value in `appsettings.json` (or via environment va
   }
 }
 ```
+* **Enable** - Set to `true` to enable Cambridge Audio integration. When `true` and `Host` is empty the service will attempt automatic SSDP device discovery on startup.
+* **Host** - Hostname or IP address of the device. Leave empty to use automatic discovery.
 * **StartPower** - Optional initial power state to set on startup. `true` for on, `false` for standby. If not specified, retains current power state.
-* * **ClosePower** - Optional setting to power off the amplifier when the service stops. `true` to power off, `false` to leave on. Default is `false`.
+* **ClosePower** - Optional setting to power off the amplifier when the service stops. `true` to power off, `false` to leave on. Default is `false`.
 * **StartVolume** - Optional initial volume level (0–100%) to set on startup. If not specified, retains current amplifier volume.
 * **StartSourceName** - Optional initial source name to select on startup. Must match a valid source from `GetSourcesAsync()`. If not specified, retains current source.
 * **StartOutput** - Optional initial output name to select on startup. Must match a valid output from `GetOutputsAsync()`. If not specified, retains current output.
 * **MaxVolume** - Optional maximum volume level (0–100) that 100% Windows master volume maps to on the Cambridge Audio device. For example, setting `MaxVolume` to `80` means Windows 100% → Cambridge Audio 80%, Windows 50% → Cambridge Audio 40%, etc. Cambridge Audio volume changes are also scaled back proportionally to Windows volume. Leave `null` (default) to use a 1:1 mapping where Windows 100% = Cambridge Audio 100%.
+
+### Device Discovery
+
+When `Enable` is `true` and `Host` is not set, VolumeAssistant will send an SSDP M-SEARCH multicast to `239.255.255.250:1900` and connect to the first Cambridge Audio StreamMagic device that responds. If no device is found within the discovery timeout, the integration is silently disabled for that session.
 
 ### Configuration (Not working yet)
 

@@ -25,7 +25,7 @@ builder.Services.AddSingleton<MatterDevice>();
 builder.Services.AddSingleton<MatterServer>();
 builder.Services.AddSingleton<MdnsAdvertiser>();
 
-// Register Cambridge Audio integration (optional – only active when CambridgeAudio:Host is set)
+// Register Cambridge Audio integration (optional – only active when CambridgeAudio:Enable is true)
 builder.Services.Configure<CambridgeAudioOptions>(
     builder.Configuration.GetSection(CambridgeAudioOptions.SectionName));
 
@@ -34,18 +34,68 @@ builder.Services.AddSingleton<ICambridgeAudioClient>(sp =>
     var opts = sp.GetRequiredService<IOptions<CambridgeAudioOptions>>().Value;
     if (!opts.IsEnabled)
         return new NullCambridgeAudioClient();
+
+    var factoryLogger = sp.GetService<ILoggerFactory>()?.CreateLogger("Program");
+
+    // Resolve the host: use configured value or fall back to SSDP discovery
+    string? host = opts.Host;
+    if (string.IsNullOrWhiteSpace(host))
+    {
+        factoryLogger?.LogInformation(
+            "CambridgeAudio:Enable is true but no Host is configured — attempting SSDP device discovery…");
+        try
+        {
+            host = CambridgeAudioDiscovery.DiscoverFirstAsync().GetAwaiter().GetResult();
+            if (host == null)
+            {
+                factoryLogger?.LogWarning(
+                    "No Cambridge Audio StreamMagic device was found on the network. " +
+                    "Falling back to NullCambridgeAudioClient.");
+                return new NullCambridgeAudioClient();
+            }
+
+            factoryLogger?.LogInformation("Discovered Cambridge Audio device at {Host}", host);
+        }
+        catch (Exception ex)
+        {
+            factoryLogger?.LogWarning(ex,
+                "SSDP discovery failed. Falling back to NullCambridgeAudioClient.");
+            return new NullCambridgeAudioClient();
+        }
+    }
+
+    // Build effective options (potentially with discovered host)
+    var effectiveOptions = string.Equals(host, opts.Host, StringComparison.OrdinalIgnoreCase)
+        ? sp.GetRequiredService<IOptions<CambridgeAudioOptions>>()
+        : Microsoft.Extensions.Options.Options.Create(new CambridgeAudioOptions
+        {
+            Enable = opts.Enable,
+            Host = host,
+            Port = opts.Port,
+            Zone = opts.Zone,
+            InitialReconnectDelayMs = opts.InitialReconnectDelayMs,
+            MaxReconnectDelayMs = opts.MaxReconnectDelayMs,
+            RequestTimeoutMs = opts.RequestTimeoutMs,
+            StartSourceName = opts.StartSourceName,
+            StartVolume = opts.StartVolume,
+            StartOutput = opts.StartOutput,
+            StartPower = opts.StartPower,
+            ClosePower = opts.ClosePower,
+            RelativeVolume = opts.RelativeVolume,
+            MaxVolume = opts.MaxVolume,
+        });
+
     try
     {
         return new CambridgeAudioClient(
-            sp.GetRequiredService<IOptions<CambridgeAudioOptions>>(),
+            effectiveOptions,
             sp.GetRequiredService<ILogger<CambridgeAudioClient>>());
     }
     catch (Exception ex)
     {
         // If the Cambridge client fails to construct, log and fall back to a null implementation
-        var factoryLogger = sp.GetService<ILoggerFactory>();
-        factoryLogger?.CreateLogger("Program")
-            .LogWarning(ex, "Failed to create CambridgeAudioClient at startup; falling back to NullCambridgeAudioClient.");
+        factoryLogger?.LogWarning(ex,
+            "Failed to create CambridgeAudioClient at startup; falling back to NullCambridgeAudioClient.");
         return new NullCambridgeAudioClient();
     }
 });
