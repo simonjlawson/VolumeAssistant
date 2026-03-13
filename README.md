@@ -146,8 +146,8 @@ Update:   {"path": "/zone/state", "type": "update", "params": {"data": {...}}}
 When Cambridge Audio integration is enabled, the service keeps the Windows master volume and the Cambridge Audio amplifier volume in sync:
 
 - Windows volume changes → immediately applied to Cambridge Audio amplifier
-- Cambridge Audio volume changes (e.g. hardware knob) → immediately applied to Windows master volume
-- Matter controller commands → applied to both Windows and Cambridge Audio
+- (WIP - This causes a horrible loop) - Cambridge Audio volume changes (e.g. hardware knob) → immediately applied to Windows master volume
+- Matter controller commands → applied to both Windows (and therefore Cambridge Audio if enabled)
 
 ### Configuration
 
