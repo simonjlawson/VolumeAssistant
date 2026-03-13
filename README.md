@@ -1,7 +1,7 @@
 # VolumeAssistant
 
 ## Summary
-Directly syncs Windows volume with external sources allowing them to used as traditional USB audio due to highend HiFis enforcing maximum volume. 
+Directly syncs Windows volume with external Matter devices and intergrates a Cambridge Audio StreamMagic device with the PC.
 
 ## Functionality
 A Windows serivce that can expose the Windows master volume as a **Matter** smart home device on the local network for other devices to match. Connects to CambridgeAudio StreamMagic devices and directly syncs Windows volume.A Home Assistant, Google Home, or Apple Home controller can discover, commission, and control the Windows PC volume as if it were a dimmable light — where the *brightness* (level 0–254) maps directly to *volume* (0–100%).
@@ -12,6 +12,25 @@ A Windows serivce that can expose the Windows master volume as a **Matter** smar
 - **mDNS advertisement** – the device is automatically discoverable via DNS-SD (`_matterc._udp` + `_matter._tcp`).
 - **Matter protocol** – UDP server on port 5540 with standard Interaction Model: Read, Write, Subscribe, and Command operations.
 - **Cambridge Audio** - Direct intergration of Cambridge Audio API for Windows -> CA volume sync and configurable source/output/power control.
+  - Power On on login/wakeup
+  - Power Off on shutdown/sleep
+  - Switch to USB source on login
+  - Windows volume effects Amped volume
+  - 100% Windows volume can only be 30% in Amp
+  - Mute,Play/Pause,Next,Previous keys sent to device
+  - Shift+SCRLK cycles Amp source
+
+This integration is a partial C# port of the Python projects:
+[aiostreammagic](https://github.com/noahhusby/aiostreammagic)
+[stream_magic](https://github.com/sebk-666/stream_magic)
+
+## Compatability
+
+StreamMagic is as simple as intergrations get so the service should be universal, please do get in contact to confirm/deny other devices work.
+
+| Device | Verified |
+|---|---|
+| Evo 150 SE | Yes |
 
 ## Installation
 
@@ -116,8 +135,6 @@ The device appears as a **Dimmable Light** where the level (0–100%) controls t
 
 VolumeAssistant can optionally connect to a [Cambridge Audio StreamMagic](https://www.cambridgeaudio.com/streammagic) amplifier over your local network, providing volume and source control.
 
-This integration is a partial C# port of the Python [aiostreammagic](https://github.com/noahhusby/aiostreammagic) library.
-
 ### How it works
 
 The service connects to the Cambridge Audio device's built-in WebSocket server at `ws://{host}/smoip` and exchanges JSON messages using the StreamMagic API:
@@ -149,7 +166,7 @@ Update:   {"path": "/zone/state", "type": "update", "params": {"data": {...}}}
 When Cambridge Audio integration is enabled, the service keeps the Windows master volume and the Cambridge Audio amplifier volume in sync:
 
 - Windows volume changes → immediately applied to Cambridge Audio amplifier
-- (WIP - This causes a horrible loop) - Cambridge Audio volume changes (e.g. hardware knob) → immediately applied to Windows master volume
+- Cambridge Audio volume changes (e.g. hardware knob) → immediately applied to Windows master volume **(Disabled - This causes a horrible loop)**
 - Matter controller commands → applied to both Windows (and therefore Cambridge Audio if enabled)
 
 ### Media key transport control
@@ -198,8 +215,7 @@ Specify `Host` to connect to a particular device directly (skipping discovery):
     "MaxVolume": "30",
     "MediaKeysEnabled": false,
     "SourceSwitchingEnabled": false,
-    "SourceSwitchingKey": "NextTrack",
-    "SourceSwitchingNames": "PC,TV,Spotify"
+    "SourceSwitchingNames": "PC,AirPlay,Internet Radio"
   }
 }
 ```
@@ -212,15 +228,14 @@ Specify `Host` to connect to a particular device directly (skipping discovery):
 * **StartOutput** - Optional initial output name to select on startup. Must match a valid output from `GetOutputsAsync()`. If not specified, retains current output.
 * **MaxVolume** - Optional maximum volume level (0–100) that 100% Windows master volume maps to on the Cambridge Audio device. For example, setting `MaxVolume` to `80` means Windows 100% → Cambridge Audio 80%, Windows 50% → Cambridge Audio 40%, etc. Cambridge Audio volume changes are also scaled back proportionally to Windows volume. Leave `null` (default) to use a 1:1 mapping where Windows 100% = Cambridge Audio 100%.
 * **MediaKeysEnabled** - When `true`, the service intercepts Windows media key presses (Play/Pause, Next Track, Previous Track) and forwards them as transport control commands to the Cambridge Audio device. Default is `false`.
-* **SourceSwitchingEnabled** - When `true`, one of the media keys (configured by `SourceSwitchingKey`) will cycle through the sources listed in `SourceSwitchingNames` instead of sending a transport control command. Requires `MediaKeysEnabled` to be `true`. Default is `false`.
-* **SourceSwitchingKey** - The media key used to cycle through sources when `SourceSwitchingEnabled` is `true`. Valid values (case-insensitive): `"PlayPause"`, `"NextTrack"`, `"PreviousTrack"`. Default is `"NextTrack"`.
+* **SourceSwitchingEnabled** - When `true`, Shift+SCRLK will cycle through the sources listed in `SourceSwitchingNames`. Default is `false`.
 * **SourceSwitchingNames** - Comma-separated list of source names to cycle through when `SourceSwitchingEnabled` is `true`. Each name must match a source name on the device (case-insensitive). Example: `"PC,TV,Spotify"`. On each key press the service advances to the next source in the list, wrapping around from the last back to the first. If the current source is not in the list, it switches to the first entry.
 
 ### Device Discovery
 
-When `Enable` is `true` and `Host` is not set, VolumeAssistant will send an SSDP M-SEARCH multicast to `239.255.255.250:1900` and connect to the first Cambridge Audio StreamMagic device that responds. If no device is found within the discovery timeout, the integration is silently disabled for that session.
+When `CambridgeAudio:Enable` is `true` and `Host` is not set, VolumeAssistant will send an SSDP M-SEARCH multicast to `239.255.255.250:1900` and connect to the first Cambridge Audio StreamMagic device that responds. If no device is found within the discovery timeout, the integration is silently disabled for that session.
 
-### Configuration (Not working yet)
+### WIP Configuration
 
 ```
     "RelativeVolume": false,
