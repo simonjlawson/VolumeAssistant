@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using VolumeAssistant.Service;
 using VolumeAssistant.Service.Audio;
 using VolumeAssistant.Service.CambridgeAudio;
@@ -33,6 +34,13 @@ namespace VolumeAssistant.Tests
             {
                 LastSetMuted = muted;
                 VolumeChanged?.Invoke(this, new VolumeChangedEventArgs(LastSetVolume, muted));
+            }
+
+            public void RaiseVolumeChanged(float volumePercent, bool muted)
+            {
+                LastSetVolume = volumePercent;
+                LastSetMuted = muted;
+                VolumeChanged?.Invoke(this, new VolumeChangedEventArgs(volumePercent, muted));
             }
 
             public void Dispose() { }
@@ -122,6 +130,88 @@ namespace VolumeAssistant.Tests
 
             // CambridgeAudio should have received one SetVolume call (from Matter -> worker -> cambridge)
             Assert.Single(cam.SetVolumeCalls);
+        }
+
+        private static (Worker worker, TestAudioController audio, TestCambridgeAudioClient cam) CreateWorkerWithOptions(CambridgeAudioOptions options)
+        {
+            var audio = new TestAudioController();
+            var matterDevice = new MatterDevice();
+            var matterServer = new MatterServer(matterDevice, NullLogger<MatterServer>.Instance);
+            var mdns = new MdnsAdvertiser(matterDevice, NullLogger<MdnsAdvertiser>.Instance);
+            var cam = new TestCambridgeAudioClient();
+
+            var worker = new Worker(
+                audio, matterDevice, matterServer, mdns, NullLogger<Worker>.Instance, cam,
+                Options.Create(options));
+
+            // Initialise the syncer (normally created in ExecuteAsync) so that
+            // OnWindowsVolumeChanged can enqueue volume changes.
+            var syncer = new CambridgeAudioSyncer(cam, options, NullLogger<Worker>.Instance);
+            var syncerField = typeof(Worker).GetField("_cambridgeSyncer", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+            syncerField.SetValue(worker, syncer);
+
+            var workerType = typeof(Worker);
+            var onWindows = workerType.GetMethod("OnWindowsVolumeChanged", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+            var onCam = workerType.GetMethod("OnCambridgeAudioStateChanged", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+
+            var windowsDel = (EventHandler<VolumeChangedEventArgs>)Delegate.CreateDelegate(typeof(EventHandler<VolumeChangedEventArgs>), worker, onWindows);
+            audio.VolumeChanged += windowsDel;
+
+            var camDel = (EventHandler<CambridgeAudioStateChangedEventArgs>)Delegate.CreateDelegate(typeof(EventHandler<CambridgeAudioStateChangedEventArgs>), worker, onCam);
+            cam.StateChanged += camDel;
+
+            return (worker, audio, cam);
+        }
+
+        [Theory]
+        [InlineData(100f, 80, 80)]  // Windows 100% → Cambridge 80 (MaxVolume)
+        [InlineData(50f,  80, 40)]  // Windows 50%  → Cambridge 40 (50% of 80)
+        [InlineData(0f,   80, 0)]   // Windows 0%   → Cambridge 0
+        [InlineData(25f,  60, 15)]  // Windows 25%  → Cambridge 15 (25% of 60)
+        public void WindowsVolumeChange_WithMaxVolume_ScalesCambridgeVolume(
+            float windowsPercent, int maxVolume, int expectedCamVolume)
+        {
+            var options = new CambridgeAudioOptions { MaxVolume = maxVolume, RelativeVolume = false };
+            var (_, audio, cam) = CreateWorkerWithOptions(options);
+
+            audio.RaiseVolumeChanged(windowsPercent, false);
+            Thread.Sleep(100);
+
+            Assert.Single(cam.SetVolumeCalls);
+            Assert.Equal(expectedCamVolume, cam.SetVolumeCalls[0]);
+        }
+
+        [Theory]
+        [InlineData(80f,  80,  100f)]  // Cambridge 80 (MaxVolume) → Windows 100%
+        [InlineData(40f,  80,  50f)]   // Cambridge 40 → Windows 50%
+        [InlineData(0f,   80,  0f)]    // Cambridge 0 → Windows 0%
+        [InlineData(60f,  80,  75f)]   // Cambridge 60 → Windows 75%
+        public void CambridgeVolumeChange_WithMaxVolume_ScalesWindowsVolume(
+            float cambridgePercent, int maxVolume, float expectedWindowsVolume)
+        {
+            var options = new CambridgeAudioOptions { MaxVolume = maxVolume, RelativeVolume = false };
+            var (_, audio, cam) = CreateWorkerWithOptions(options);
+
+            cam.RaiseStateChanged((int)cambridgePercent, false);
+            Thread.Sleep(100);
+
+            Assert.Equal(expectedWindowsVolume, audio.LastSetVolume, 1);
+        }
+
+        [Theory]
+        [InlineData(100f, 100)]  // Without MaxVolume: Windows 100% → Cambridge 100
+        [InlineData(50f,  50)]   // Without MaxVolume: Windows 50% → Cambridge 50
+        public void WindowsVolumeChange_WithoutMaxVolume_PassesThroughUnchanged(
+            float windowsPercent, int expectedCamVolume)
+        {
+            var options = new CambridgeAudioOptions { MaxVolume = null, RelativeVolume = false };
+            var (_, audio, cam) = CreateWorkerWithOptions(options);
+
+            audio.RaiseVolumeChanged(windowsPercent, false);
+            Thread.Sleep(100);
+
+            Assert.Single(cam.SetVolumeCalls);
+            Assert.Equal(expectedCamVolume, cam.SetVolumeCalls[0]);
         }
 
     }

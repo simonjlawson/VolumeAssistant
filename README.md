@@ -179,12 +179,14 @@ Leave `Host` empty to disable Cambridge Audio integration entirely.
 ```
     "StartPower": false,
     "ClosePower": false,
-    "RelativeVolume": false
+    "RelativeVolume": false,
+    "MaxVolume": null
 ```
 
 * **StartPower** - Optional initial power state to set on startup. `true` for on, `false` for standby. If not specified, retains current power state.
 * **ClosePower** - Optional setting to power off the amplifier when the service stops. `true` to power off, `false` to leave on. Default is `false`.
 * **RelativeVolume** - Optional setting to treat volume changes as relative adjustments instead of absolute levels. It gets weird using this but might be useful, `true` to enable relative volume (e.g., +5% or -10%), `false` for absolute volume levels. Default is `false`.
+* **MaxVolume** - Optional maximum volume level (0–100) that 100% Windows master volume maps to on the Cambridge Audio device. For example, setting `MaxVolume` to `80` means Windows 100% → Cambridge Audio 80%, Windows 50% → Cambridge Audio 40%, etc. Cambridge Audio volume changes are also scaled back proportionally to Windows volume. Leave `null` (default) to use a 1:1 mapping where Windows 100% = Cambridge Audio 100%.
 
 ### Reconnection
 

@@ -77,4 +77,13 @@ public sealed class CambridgeAudioOptions
     /// Cambridge Audio device volume instead of setting absolute values.
     /// </summary>
     public bool RelativeVolume { get; set; } = true;
+
+    /// <summary>
+    /// Optional maximum volume (0–100) that 100% Windows master volume maps to on the Cambridge Audio
+    /// device. When set, the full Windows volume range (0–100%) is scaled proportionally to
+    /// 0–<see cref="MaxVolume"/>% on the Cambridge Audio device, and Cambridge Audio volume changes
+    /// are scaled back to the corresponding Windows volume percentage.
+    /// Leave null (default) to map Windows 100% to Cambridge Audio 100%.
+    /// </summary>
+    public int? MaxVolume { get; set; }
 }
