@@ -427,10 +427,17 @@ public sealed class Worker : BackgroundService
 
     /// <summary>
     /// Handles the Play/Pause media key press and forwards it to the Cambridge Audio device.
+    /// If source switching is enabled and configured to use this key, cycles through sources instead.
     /// </summary>
     private void OnMediaKeyPlayPause(object? sender, EventArgs e)
     {
         if (_cambridgeAudio == null || !_cambridgeAudio.IsConnected) return;
+        if (_cambridgeOptions.SourceSwitchingEnabled &&
+            "playpause".Equals(_cambridgeOptions.SourceSwitchingKey, StringComparison.OrdinalIgnoreCase))
+        {
+            _ = Task.Run(async () => await CycleSourceAsync().ConfigureAwait(false));
+            return;
+        }
         _logger.LogInformation("Media key: Play/Pause → Cambridge Audio");
         _ = Task.Run(async () =>
         {
@@ -455,10 +462,17 @@ public sealed class Worker : BackgroundService
 
     /// <summary>
     /// Handles the Next Track media key press and forwards it to the Cambridge Audio device.
+    /// If source switching is enabled and configured to use this key, cycles through sources instead.
     /// </summary>
     private void OnMediaKeyNextTrack(object? sender, EventArgs e)
     {
         if (_cambridgeAudio == null || !_cambridgeAudio.IsConnected) return;
+        if (_cambridgeOptions.SourceSwitchingEnabled &&
+            "nexttrack".Equals(_cambridgeOptions.SourceSwitchingKey, StringComparison.OrdinalIgnoreCase))
+        {
+            _ = Task.Run(async () => await CycleSourceAsync().ConfigureAwait(false));
+            return;
+        }
         _logger.LogInformation("Media key: Next Track → Cambridge Audio");
         _ = Task.Run(async () =>
         {
@@ -480,10 +494,17 @@ public sealed class Worker : BackgroundService
 
     /// <summary>
     /// Handles the Previous Track media key press and forwards it to the Cambridge Audio device.
+    /// If source switching is enabled and configured to use this key, cycles through sources instead.
     /// </summary>
     private void OnMediaKeyPreviousTrack(object? sender, EventArgs e)
     {
         if (_cambridgeAudio == null || !_cambridgeAudio.IsConnected) return;
+        if (_cambridgeOptions.SourceSwitchingEnabled &&
+            "previoustrack".Equals(_cambridgeOptions.SourceSwitchingKey, StringComparison.OrdinalIgnoreCase))
+        {
+            _ = Task.Run(async () => await CycleSourceAsync().ConfigureAwait(false));
+            return;
+        }
         _logger.LogInformation("Media key: Previous Track → Cambridge Audio");
         _ = Task.Run(async () =>
         {
@@ -501,6 +522,69 @@ public sealed class Worker : BackgroundService
                 }
             }
         });
+    }
+
+    /// <summary>
+    /// Cycles to the next source in the configured <see cref="CambridgeAudioOptions.SourceSwitchingNames"/>
+    /// list. Determines the current source from the device state, finds it in the configured list,
+    /// and switches to the next entry (wrapping around). If the current source is not in the list,
+    /// switches to the first entry.
+    /// </summary>
+    private async Task CycleSourceAsync()
+    {
+        if (_cambridgeAudio == null || !_cambridgeAudio.IsConnected) return;
+
+        var namesRaw = _cambridgeOptions.SourceSwitchingNames;
+        if (string.IsNullOrWhiteSpace(namesRaw)) return;
+
+        var configuredNames = namesRaw
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (configuredNames.Length == 0) return;
+
+        try
+        {
+            var sources = _cambridgeAudio.Sources;
+            var currentSourceId = _cambridgeAudio.State?.Source ?? string.Empty;
+
+            // Resolve the current source's name
+            var currentSource = sources.FirstOrDefault(s =>
+                s.Id.Equals(currentSourceId, StringComparison.OrdinalIgnoreCase));
+            var currentName = currentSource?.Name ?? string.Empty;
+
+            // Find the current name in the configured list (case-insensitive)
+            int currentIndex = Array.FindIndex(configuredNames, n =>
+                n.Equals(currentName, StringComparison.OrdinalIgnoreCase));
+
+            // Advance to the next name (wrap around); if not found, start at 0
+            int nextIndex = currentIndex >= 0
+                ? (currentIndex + 1) % configuredNames.Length
+                : 0;
+
+            var targetName = configuredNames[nextIndex];
+
+            // Find the target source by name
+            var targetSource = sources.FirstOrDefault(s =>
+                s.Name.Equals(targetName, StringComparison.OrdinalIgnoreCase));
+
+            if (targetSource == null)
+            {
+                _logger.LogWarning(
+                    "Source switching: source '{Name}' not found on device. Available: {Sources}",
+                    targetName,
+                    string.Join(", ", sources.Select(s => s.Name)));
+                return;
+            }
+
+            await _cambridgeAudio.SetSourceAsync(targetSource.Id).ConfigureAwait(false);
+            _logger.LogInformation(
+                "Source switched: {From} → {To}",
+                string.IsNullOrEmpty(currentName) ? "(unknown)" : currentName,
+                targetName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to cycle Cambridge Audio source.");
+        }
     }
 
     // Internal handler invoked via a reflection-created delegate. We intentionally

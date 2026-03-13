@@ -164,6 +164,8 @@ When `MediaKeysEnabled` is `true`, the service installs a low-level Windows keyb
 
 This allows the keyboard media keys to control playback on the Cambridge Audio device rather than (or as well as) any local media player.
 
+When `SourceSwitchingEnabled` is also `true`, the key specified by `SourceSwitchingKey` will cycle through the configured source list instead of sending a transport command.
+
 ### Configuration
 
 Enable the integration with `CambridgeAudio:Enable` in `appsettings.json`. If `Host` is left empty, the service will automatically discover StreamMagic devices on your local network at startup using SSDP.
@@ -194,7 +196,10 @@ Specify `Host` to connect to a particular device directly (skipping discovery):
     "StartSourceName": "PC",
     "StartOutput": null,
     "MaxVolume": "30",
-    "MediaKeysEnabled": false
+    "MediaKeysEnabled": false,
+    "SourceSwitchingEnabled": false,
+    "SourceSwitchingKey": "NextTrack",
+    "SourceSwitchingNames": "PC,TV,Spotify"
   }
 }
 ```
@@ -207,6 +212,9 @@ Specify `Host` to connect to a particular device directly (skipping discovery):
 * **StartOutput** - Optional initial output name to select on startup. Must match a valid output from `GetOutputsAsync()`. If not specified, retains current output.
 * **MaxVolume** - Optional maximum volume level (0–100) that 100% Windows master volume maps to on the Cambridge Audio device. For example, setting `MaxVolume` to `80` means Windows 100% → Cambridge Audio 80%, Windows 50% → Cambridge Audio 40%, etc. Cambridge Audio volume changes are also scaled back proportionally to Windows volume. Leave `null` (default) to use a 1:1 mapping where Windows 100% = Cambridge Audio 100%.
 * **MediaKeysEnabled** - When `true`, the service intercepts Windows media key presses (Play/Pause, Next Track, Previous Track) and forwards them as transport control commands to the Cambridge Audio device. Default is `false`.
+* **SourceSwitchingEnabled** - When `true`, one of the media keys (configured by `SourceSwitchingKey`) will cycle through the sources listed in `SourceSwitchingNames` instead of sending a transport control command. Requires `MediaKeysEnabled` to be `true`. Default is `false`.
+* **SourceSwitchingKey** - The media key used to cycle through sources when `SourceSwitchingEnabled` is `true`. Valid values (case-insensitive): `"PlayPause"`, `"NextTrack"`, `"PreviousTrack"`. Default is `"NextTrack"`.
+* **SourceSwitchingNames** - Comma-separated list of source names to cycle through when `SourceSwitchingEnabled` is `true`. Each name must match a source name on the device (case-insensitive). Example: `"PC,TV,Spotify"`. On each key press the service advances to the next source in the list, wrapping around from the last back to the first. If the current source is not in the list, it switches to the first entry.
 
 ### Device Discovery
 
