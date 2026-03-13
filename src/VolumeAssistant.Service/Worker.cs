@@ -135,6 +135,11 @@ public sealed class Worker : BackgroundService
                         }
                     }
 
+                    if (_cambridgeOptions.MaxVolume.HasValue)
+                    {
+                        _logger.LogInformation($"Cambridge Audio MaxVolume scaling in effect - MaxVolume: {_cambridgeOptions.MaxVolume.Value}");
+                    }
+
                     if (_cambridgeOptions.StartVolume.HasValue)
                     {
                         await _cambridgeAudio.SetVolumeAsync(_cambridgeOptions.StartVolume.Value);
