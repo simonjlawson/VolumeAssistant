@@ -159,8 +159,8 @@ Set the `CambridgeAudio:Host` value in `appsettings.json` (or via environment va
     "Host": "192.168.1.10",
     "Port": 80,
     "Zone": "ZONE1"
-
     "StartPower": false,
+    "ClosePower": false,
     "StartVolume": "10",
     "StartSourceName": "PC",
     "StartOutput": null,
@@ -169,6 +169,7 @@ Set the `CambridgeAudio:Host` value in `appsettings.json` (or via environment va
 }
 ```
 * **StartPower** - Optional initial power state to set on startup. `true` for on, `false` for standby. If not specified, retains current power state.
+* * **ClosePower** - Optional setting to power off the amplifier when the service stops. `true` to power off, `false` to leave on. Default is `false`.
 * **StartVolume** - Optional initial volume level (0–100%) to set on startup. If not specified, retains current amplifier volume.
 * **StartSourceName** - Optional initial source name to select on startup. Must match a valid source from `GetSourcesAsync()`. If not specified, retains current source.
 * **StartOutput** - Optional initial output name to select on startup. Must match a valid output from `GetOutputsAsync()`. If not specified, retains current output.
@@ -177,11 +178,9 @@ Set the `CambridgeAudio:Host` value in `appsettings.json` (or via environment va
 ### Configuration (Not working yet)
 
 ```
-    "ClosePower": false,
     "RelativeVolume": false,
 ```
 
-* **ClosePower** - Optional setting to power off the amplifier when the service stops. `true` to power off, `false` to leave on. Default is `false`.
 * **RelativeVolume** - Optional setting to treat volume changes as relative adjustments instead of absolute levels. It gets weird using this but might be useful, `true` to enable relative volume (e.g., +5% or -10%), `false` for absolute volume levels. Default is `false`.
 
 
