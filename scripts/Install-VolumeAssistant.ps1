@@ -90,6 +90,15 @@ try {
 
 # Publish framework-dependent (no RID) by default
 if ($SelfContained) {
+    # Ensure runtime packs are restored for the requested RID before publishing. Publishing with --no-restore
+    # can fail to download runtime packs which results in NETSDK1112. Run an explicit restore with the RID.
+    Write-Info "Running: dotnet restore -r $Runtime $($csproj.FullName)"
+    dotnet restore -r $Runtime $csproj.FullName
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "dotnet restore failed (exit code $LASTEXITCODE)."
+        exit $LASTEXITCODE
+    }
+
     Write-Info "Running: dotnet publish -c $Configuration -r $Runtime --self-contained true -o $publishTemp $($csproj.FullName)"
     dotnet publish --no-restore -c $Configuration -r $Runtime --self-contained true -o $publishTemp $csproj.FullName
 } else {
