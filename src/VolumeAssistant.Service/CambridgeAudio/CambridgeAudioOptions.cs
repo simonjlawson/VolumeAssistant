@@ -86,4 +86,11 @@ public sealed class CambridgeAudioOptions
     /// Leave null (default) to map Windows 100% to Cambridge Audio 100%.
     /// </summary>
     public int? MaxVolume { get; set; }
+
+    /// <summary>
+    /// When true, the service will intercept Windows media key presses (Play/Pause, Next Track,
+    /// Previous Track) and forward them to the Cambridge Audio device as transport control commands.
+    /// Defaults to false.
+    /// </summary>
+    public bool MediaKeysEnabled { get; set; } = false;
 }

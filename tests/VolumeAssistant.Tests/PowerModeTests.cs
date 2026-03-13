@@ -50,6 +50,9 @@ namespace VolumeAssistant.Tests
                 PowerOffCalls++;
                 return Task.CompletedTask;
             }
+            public Task PlayPauseAsync(CancellationToken ct = default) => Task.CompletedTask;
+            public Task NextTrackAsync(CancellationToken ct = default) => Task.CompletedTask;
+            public Task PreviousTrackAsync(CancellationToken ct = default) => Task.CompletedTask;
         }
 
         private sealed class TestAudioController : IAudioController

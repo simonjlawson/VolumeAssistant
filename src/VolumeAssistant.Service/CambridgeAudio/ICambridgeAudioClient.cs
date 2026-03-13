@@ -68,6 +68,21 @@ public interface ICambridgeAudioClient : IAsyncDisposable
     Task PowerOffAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Toggles play/pause on the currently active zone.
+    /// </summary>
+    Task PlayPauseAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Skips to the next track in the currently active zone.
+    /// </summary>
+    Task NextTrackAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Skips to the previous track in the currently active zone.
+    /// </summary>
+    Task PreviousTrackAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Retrieves the current zone state from the device.
     /// </summary>
     Task<CambridgeAudioState> GetStateAsync(CancellationToken cancellationToken = default);

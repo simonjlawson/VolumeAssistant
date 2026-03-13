@@ -140,6 +140,9 @@ Update:   {"path": "/zone/state", "type": "update", "params": {"data": {...}}}
 | Select input source | `SetSourceAsync(string sourceId)` |
 | Power on | `PowerOnAsync()` |
 | Network standby | `PowerOffAsync()` |
+| Toggle play/pause | `PlayPauseAsync()` |
+| Next track | `NextTrackAsync()` |
+| Previous track | `PreviousTrackAsync()` |
 
 ### Volume synchronisation
 
@@ -148,6 +151,18 @@ When Cambridge Audio integration is enabled, the service keeps the Windows maste
 - Windows volume changes → immediately applied to Cambridge Audio amplifier
 - (WIP - This causes a horrible loop) - Cambridge Audio volume changes (e.g. hardware knob) → immediately applied to Windows master volume
 - Matter controller commands → applied to both Windows (and therefore Cambridge Audio if enabled)
+
+### Media key transport control
+
+When `MediaKeysEnabled` is `true`, the service installs a low-level Windows keyboard hook and intercepts the following media keys, forwarding each as a StreamMagic transport command to the Cambridge Audio device:
+
+| Key | Action |
+|---|---|
+| Play/Pause | Toggle play/pause (`/zone/play_control` action=toggle) |
+| Next Track | Skip to next track (`/zone/play_control` skip_track=1) |
+| Previous Track | Skip to previous track (`/zone/play_control` skip_track=-1) |
+
+This allows the keyboard media keys to control playback on the Cambridge Audio device rather than (or as well as) any local media player.
 
 ### Configuration
 
@@ -164,7 +179,8 @@ Set the `CambridgeAudio:Host` value in `appsettings.json` (or via environment va
     "StartVolume": "10",
     "StartSourceName": "PC",
     "StartOutput": null,
-    "MaxVolume": "30"
+    "MaxVolume": "30",
+    "MediaKeysEnabled": false
   }
 }
 ```
@@ -174,6 +190,7 @@ Set the `CambridgeAudio:Host` value in `appsettings.json` (or via environment va
 * **StartSourceName** - Optional initial source name to select on startup. Must match a valid source from `GetSourcesAsync()`. If not specified, retains current source.
 * **StartOutput** - Optional initial output name to select on startup. Must match a valid output from `GetOutputsAsync()`. If not specified, retains current output.
 * **MaxVolume** - Optional maximum volume level (0–100) that 100% Windows master volume maps to on the Cambridge Audio device. For example, setting `MaxVolume` to `80` means Windows 100% → Cambridge Audio 80%, Windows 50% → Cambridge Audio 40%, etc. Cambridge Audio volume changes are also scaled back proportionally to Windows volume. Leave `null` (default) to use a 1:1 mapping where Windows 100% = Cambridge Audio 100%.
+* **MediaKeysEnabled** - When `true`, the service intercepts Windows media key presses (Play/Pause, Next Track, Previous Track) and forwards them as transport control commands to the Cambridge Audio device. Default is `false`.
 
 ### Configuration (Not working yet)
 
