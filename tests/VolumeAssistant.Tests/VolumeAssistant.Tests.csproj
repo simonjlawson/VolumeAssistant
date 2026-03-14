@@ -22,6 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\VolumeAssistant.Core\VolumeAssistant.Core.csproj" />
     <ProjectReference Include="..\..\src\VolumeAssistant.Service\VolumeAssistant.Service.csproj" />
   </ItemGroup>
 

@@ -10,7 +10,7 @@ using VolumeAssistant.Service.Matter.Clusters;
 
 namespace VolumeAssistant.Service;
 
-internal sealed class VolumeSyncCoordinator
+public sealed class VolumeSyncCoordinator
 {
     private readonly IAudioController _audioController;
     private readonly ICambridgeAudioClient? _cambridgeAudio;
