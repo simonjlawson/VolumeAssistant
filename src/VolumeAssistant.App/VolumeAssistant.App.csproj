@@ -29,4 +29,8 @@
     <ProjectReference Include="..\VolumeAssistant.Core\VolumeAssistant.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Themes\" />
+  </ItemGroup>
+
 </Project>

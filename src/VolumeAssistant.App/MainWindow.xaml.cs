@@ -109,6 +109,28 @@ public partial class MainWindow : Window
             CaVolumeText.Text = state?.VolumePercent != null ? $"{state.VolumePercent}%" : "—";
         }
 
+        // Update connect button state
+        try
+        {
+            if (CaConnectButton != null)
+            {
+                if (_cambridgeClient == null)
+                {
+                    CaConnectButton.Content = "Disabled";
+                    CaConnectButton.IsEnabled = false;
+                }
+                else
+                {
+                    CaConnectButton.Content = _cambridgeClient.IsConnected ? "Disconnect" : "Connect";
+                    CaConnectButton.IsEnabled = true;
+                }
+            }
+        }
+        catch
+        {
+            // ignore UI update failures
+        }
+
         // Windows audio
         try
         {
@@ -292,6 +314,40 @@ public partial class MainWindow : Window
         // Auto-scroll to bottom when new entries arrive
         if (_logEntries.Count > 0)
             LogListBox.ScrollIntoView(_logEntries[^1]);
+    }
+
+    private async void CaConnectButton_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_cambridgeClient == null)
+        {
+            System.Windows.MessageBox.Show(this, "Cambridge Audio client is not available.", "Not Available", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        // Disable button while working
+        try
+        {
+            CaConnectButton.IsEnabled = false;
+
+            if (_cambridgeClient.IsConnected)
+            {
+                await _cambridgeClient.DisconnectAsync();
+            }
+            else
+            {
+                await _cambridgeClient.ConnectAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(this, $"Connection action failed: {ex.Message}", "Connection Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            // Refresh UI
+            RefreshConnectionInfo();
+            CaConnectButton.IsEnabled = true;
+        }
     }
 
     private void ClearLogs_Click(object sender, RoutedEventArgs e)
