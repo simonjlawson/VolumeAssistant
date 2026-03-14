@@ -12,8 +12,19 @@ builder.Services.AddWindowsService(options =>
     options.ServiceName = "VolumeAssistant";
 });
 
-// Register audio controller (Windows WASAPI)
-builder.Services.AddSingleton<IAudioController, WindowsAudioController>();
+// Register audio controller (Windows WASAPI) using a factory so we can
+// fall back to a NullAudioController when WASAPI is unavailable (e.g.,
+// running as a Windows Service in session 0 where no interactive audio
+// endpoint exists).
+// Register a retrying audio controller which will attempt to construct
+// the WindowsAudioController repeatedly until successful. This avoids a
+// permanent fallback to a null implementation while not throwing at
+// startup when WASAPI is temporarily unavailable.
+builder.Services.AddSingleton<IAudioController>(sp =>
+{
+    var logger = sp.GetService<ILogger<VolumeAssistant.Service.Audio.RetryingAudioController>>();
+    return new VolumeAssistant.Service.Audio.RetryingAudioController(logger);
+});
 
 // Register Matter device, server, and mDNS advertiser
 // Configure Matter options and register services conditionally based on configuration
