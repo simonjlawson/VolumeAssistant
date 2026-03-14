@@ -4,7 +4,7 @@ namespace VolumeAssistant.Service.CambridgeAudio;
 /// No-op implementation of <see cref="ICambridgeAudioClient"/> used when Cambridge Audio
 /// integration is disabled (no host configured). All methods are no-ops.
 /// </summary>
-internal sealed class NullCambridgeAudioClient : ICambridgeAudioClient
+public sealed class NullCambridgeAudioClient : ICambridgeAudioClient
 {
     public event EventHandler<CambridgeAudioStateChangedEventArgs>? StateChanged
     {
