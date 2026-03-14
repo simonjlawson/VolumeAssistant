@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- Transparent background -->
+  <g fill="none" fill-rule="evenodd">
+    <!-- Speaker body -->
+    <path d="M48 96v64c0 8.837 7.163 16 16 16h32l56 40V40L96 80H64c-8.837 0-16 7.163-16 16z" fill="#000"/>
+    <!-- Sound waves -->
+    <path d="M168 88c10.493 10.493 16 24.94 16 40s-5.507 29.507-16 40" stroke="#000" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M188 68c18.778 18.778 28 44.704 28 68s-9.222 49.222-28 68" stroke="#000" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

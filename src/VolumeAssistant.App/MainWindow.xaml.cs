@@ -3,6 +3,9 @@ using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.IO;
 using VolumeAssistant.Service.Audio;
 using VolumeAssistant.Service.CambridgeAudio;
 
@@ -128,50 +131,152 @@ public partial class MainWindow : Window
         var opts = app.CambridgeOptions?.Value;
         if (opts == null) return;
 
-        var rows = new (string Label, string Value)[]
-        {
-            ("Enable", opts.Enable.ToString()),
-            ("Host", string.IsNullOrWhiteSpace(opts.Host) ? "(auto-discover)" : opts.Host),
-            ("Port", opts.Port.ToString()),
-            ("Zone", opts.Zone),
-            ("Start Source", opts.StartSourceName ?? "—"),
-            ("Start Volume", opts.StartVolume?.ToString() ?? "—"),
-            ("Start Output", opts.StartOutput ?? "—"),
-            ("Start Power", opts.StartPower.ToString()),
-            ("Close Power", opts.ClosePower.ToString()),
-            ("Relative Volume", opts.RelativeVolume.ToString()),
-            ("Max Volume", opts.MaxVolume?.ToString() ?? "—"),
-            ("Media Keys", opts.MediaKeysEnabled.ToString()),
-            ("Source Switching", opts.SourceSwitchingEnabled.ToString()),
-            ("Source Names", opts.SourceSwitchingNames ?? "—"),
-        };
-
+        // Build editable controls for key CambridgeAudio settings
         ConfigGrid.RowDefinitions.Clear();
         ConfigGrid.Children.Clear();
 
-        for (int i = 0; i < rows.Length; i++)
+        int r = 0;
+
+        void AddRow(string label, UIElement control)
         {
             ConfigGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
             var labelBlock = new System.Windows.Controls.Label
             {
-                Content = rows[i].Label + ":",
+                Content = label + ":",
                 Foreground = System.Windows.Media.Brushes.Silver,
             };
-            Grid.SetRow(labelBlock, i);
+            Grid.SetRow(labelBlock, r);
             Grid.SetColumn(labelBlock, 0);
             ConfigGrid.Children.Add(labelBlock);
 
-            var valueBlock = new TextBlock
-            {
-                Text = rows[i].Value,
-                Foreground = System.Windows.Media.Brushes.White,
-                VerticalAlignment = VerticalAlignment.Center,
-                TextWrapping = TextWrapping.Wrap,
-            };
-            Grid.SetRow(valueBlock, i);
-            Grid.SetColumn(valueBlock, 1);
-            ConfigGrid.Children.Add(valueBlock);
+            Grid.SetRow(control, r);
+            Grid.SetColumn(control, 1);
+            ConfigGrid.Children.Add(control);
+            r++;
+        }
+
+        var enableChk = new System.Windows.Controls.CheckBox { IsChecked = opts.Enable, Foreground = System.Windows.Media.Brushes.White };
+        AddRow("Enable", enableChk);
+
+        var hostTb = new System.Windows.Controls.TextBox { Text = opts.Host ?? string.Empty };
+        AddRow("Host", hostTb);
+
+        var portTb = new System.Windows.Controls.TextBox { Text = opts.Port.ToString() };
+        AddRow("Port", portTb);
+
+        var zoneTb = new System.Windows.Controls.TextBox { Text = opts.Zone };
+        AddRow("Zone", zoneTb);
+
+        var startSourceTb = new System.Windows.Controls.TextBox { Text = opts.StartSourceName ?? string.Empty };
+        AddRow("Start Source", startSourceTb);
+
+        var startVolumeTb = new System.Windows.Controls.TextBox { Text = opts.StartVolume?.ToString() ?? string.Empty };
+        AddRow("Start Volume", startVolumeTb);
+
+        var startOutputTb = new System.Windows.Controls.TextBox { Text = opts.StartOutput ?? string.Empty };
+        AddRow("Start Output", startOutputTb);
+
+        var startPowerChk = new System.Windows.Controls.CheckBox { IsChecked = opts.StartPower, Foreground = System.Windows.Media.Brushes.White };
+        AddRow("Start Power", startPowerChk);
+
+        var closePowerChk = new System.Windows.Controls.CheckBox { IsChecked = opts.ClosePower, Foreground = System.Windows.Media.Brushes.White };
+        AddRow("Close Power", closePowerChk);
+
+        var relativeVolumeChk = new System.Windows.Controls.CheckBox { IsChecked = opts.RelativeVolume, Foreground = System.Windows.Media.Brushes.White };
+        AddRow("Relative Volume", relativeVolumeChk);
+
+        var maxVolumeTb = new System.Windows.Controls.TextBox { Text = opts.MaxVolume?.ToString() ?? string.Empty };
+        AddRow("Max Volume", maxVolumeTb);
+
+        var mediaKeysChk = new System.Windows.Controls.CheckBox { IsChecked = opts.MediaKeysEnabled, Foreground = System.Windows.Media.Brushes.White };
+        AddRow("Media Keys", mediaKeysChk);
+
+        var sourceSwitchingChk = new System.Windows.Controls.CheckBox { IsChecked = opts.SourceSwitchingEnabled, Foreground = System.Windows.Media.Brushes.White };
+        AddRow("Source Switching", sourceSwitchingChk);
+
+        var sourceNamesTb = new System.Windows.Controls.TextBox { Text = opts.SourceSwitchingNames ?? string.Empty };
+        AddRow("Source Names", sourceNamesTb);
+
+        // Store controls on the grid Tag for later save
+        ConfigGrid.Tag = new Dictionary<string, object>
+        {
+            ["Enable"] = enableChk,
+            ["Host"] = hostTb,
+            ["Port"] = portTb,
+            ["Zone"] = zoneTb,
+            ["StartSource"] = startSourceTb,
+            ["StartVolume"] = startVolumeTb,
+            ["StartOutput"] = startOutputTb,
+            ["StartPower"] = startPowerChk,
+            ["ClosePower"] = closePowerChk,
+            ["RelativeVolume"] = relativeVolumeChk,
+            ["MaxVolume"] = maxVolumeTb,
+            ["MediaKeys"] = mediaKeysChk,
+            ["SourceSwitching"] = sourceSwitchingChk,
+            ["SourceNames"] = sourceNamesTb,
+        };
+    }
+
+    private void ReloadConfig_Click(object sender, RoutedEventArgs e)
+    {
+        var app = (App)System.Windows.Application.Current;
+        PopulateConfigTab(app);
+    }
+
+    private void SaveConfig_Click(object sender, RoutedEventArgs e)
+    {
+        var path = FindAppSettingsPath();
+        if (path.Contains("(not found)"))
+        {
+            System.Windows.MessageBox.Show(this, "appsettings.json not found in application folder.", "Save Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (!(ConfigGrid.Tag is Dictionary<string, object> dict))
+        {
+            System.Windows.MessageBox.Show(this, "Configuration controls not available.", "Save Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        try
+        {
+            var jsonText = File.ReadAllText(path);
+            var root = JsonNode.Parse(jsonText) ?? new JsonObject();
+
+            var caNode = root[CambridgeAudioOptions.SectionName] as JsonObject ?? new JsonObject();
+
+            caNode["Enable"] = ((System.Windows.Controls.CheckBox)dict["Enable"]).IsChecked == true;
+            caNode["Host"] = ((System.Windows.Controls.TextBox)dict["Host"]).Text.Trim();
+            if (int.TryParse(((System.Windows.Controls.TextBox)dict["Port"]).Text.Trim(), out var port)) caNode["Port"] = port;
+            caNode["Zone"] = ((System.Windows.Controls.TextBox)dict["Zone"]).Text.Trim();
+            caNode["StartSourceName"] = ((System.Windows.Controls.TextBox)dict["StartSource"]).Text.Trim();
+
+            var sv = ((System.Windows.Controls.TextBox)dict["StartVolume"]).Text.Trim();
+            if (int.TryParse(sv, out var svv)) caNode["StartVolume"] = svv; else caNode.Remove("StartVolume");
+
+            caNode["StartOutput"] = ((System.Windows.Controls.TextBox)dict["StartOutput"]).Text.Trim();
+            caNode["StartPower"] = ((System.Windows.Controls.CheckBox)dict["StartPower"]).IsChecked == true;
+            caNode["ClosePower"] = ((System.Windows.Controls.CheckBox)dict["ClosePower"]).IsChecked == true;
+            caNode["RelativeVolume"] = ((System.Windows.Controls.CheckBox)dict["RelativeVolume"]).IsChecked == true;
+
+            var mv = ((System.Windows.Controls.TextBox)dict["MaxVolume"]).Text.Trim();
+            if (int.TryParse(mv, out var mvv)) caNode["MaxVolume"] = mvv; else caNode.Remove("MaxVolume");
+
+            caNode["MediaKeysEnabled"] = ((System.Windows.Controls.CheckBox)dict["MediaKeys"]).IsChecked == true;
+            caNode["SourceSwitchingEnabled"] = ((System.Windows.Controls.CheckBox)dict["SourceSwitching"]).IsChecked == true;
+            caNode["SourceSwitchingNames"] = ((System.Windows.Controls.TextBox)dict["SourceNames"]).Text.Trim();
+
+            root[CambridgeAudioOptions.SectionName] = caNode;
+
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            var newText = root.ToJsonString(options);
+            File.WriteAllText(path, newText);
+
+            System.Windows.MessageBox.Show(this, "Configuration saved to appsettings.json. Restart the app to apply changes.", "Saved", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(this, $"Failed to save configuration: {ex.Message}", "Save Failed", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
