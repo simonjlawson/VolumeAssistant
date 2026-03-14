@@ -148,6 +148,8 @@
                             <Separator Background="#444" Margin="0,6"/>
 
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
+                                <CheckBox x:Name="RunAtStartupCheck" Content="Run at startup" Margin="0,0,12,0" VerticalAlignment="Center"
+                                          Foreground="White" Checked="RunAtStartupCheck_Checked" Unchecked="RunAtStartupCheck_Unchecked"/>
                                 <Button x:Name="ReloadConfigButton" Content="Reload" Padding="8,4" Margin="0,0,8,0"
                                         Click="ReloadConfig_Click" Background="#333" Foreground="White" BorderBrush="#555"/>
                                 <Button x:Name="SaveConfigButton" Content="Save" Padding="8,4" Click="SaveConfig_Click"

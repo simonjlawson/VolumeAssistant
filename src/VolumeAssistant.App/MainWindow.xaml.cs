@@ -2,6 +2,8 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Controls;
+using Microsoft.Win32;
+using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -49,6 +51,13 @@ public partial class MainWindow : Window
 
         // Populate config tab
         PopulateConfigTab(app);
+
+        // Initialize startup checkbox state
+        try {
+            RunAtStartupCheck.IsChecked = IsStartupEnabled();
+        } catch {
+            RunAtStartupCheck.IsEnabled = false;
+        }
 
         // Initial data refresh
         RefreshConnectionInfo();
@@ -243,6 +252,86 @@ public partial class MainWindow : Window
     {
         var app = (App)System.Windows.Application.Current;
         PopulateConfigTab(app);
+        try { RunAtStartupCheck.IsChecked = IsStartupEnabled(); } catch { RunAtStartupCheck.IsEnabled = false; }
+    }
+
+    private static string GetExecutablePath()
+    {
+        try
+        {
+            var path = Process.GetCurrentProcess().MainModule?.FileName;
+            if (!string.IsNullOrEmpty(path)) return path;
+        }
+        catch { }
+        return System.Reflection.Assembly.GetEntryAssembly()?.Location ?? AppContext.BaseDirectory;
+    }
+
+    private const string StartupRegistryKey = "Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+    private const string AppRegistryName = "VolumeAssistant";
+
+    private static bool IsStartupEnabled()
+    {
+        try
+        {
+            using var rk = Registry.CurrentUser.OpenSubKey(StartupRegistryKey, false);
+            var v = rk?.GetValue(AppRegistryName) as string;
+            if (string.IsNullOrEmpty(v)) return false;
+            var exe = GetExecutablePath();
+            return v.IndexOf(System.IO.Path.GetFileName(exe), StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+        catch { return false; }
+    }
+
+    private static bool TryEnableStartup(out string? error)
+    {
+        error = null;
+        try
+        {
+            var exe = GetExecutablePath();
+            using var rk = Registry.CurrentUser.OpenSubKey(StartupRegistryKey, true) ?? Registry.CurrentUser.CreateSubKey(StartupRegistryKey);
+            rk.SetValue(AppRegistryName, $"\"{exe}\"");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+    }
+
+    private static bool TryDisableStartup(out string? error)
+    {
+        error = null;
+        try
+        {
+            using var rk = Registry.CurrentUser.OpenSubKey(StartupRegistryKey, true);
+            if (rk == null) return true;
+            rk.DeleteValue(AppRegistryName, false);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+    }
+
+    private void RunAtStartupCheck_Checked(object sender, RoutedEventArgs e)
+    {
+        if (!TryEnableStartup(out var err))
+        {
+            System.Windows.MessageBox.Show(this, $"Failed to add startup entry: {err}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            RunAtStartupCheck.IsChecked = false;
+        }
+    }
+
+    private void RunAtStartupCheck_Unchecked(object sender, RoutedEventArgs e)
+    {
+        if (!TryDisableStartup(out var err))
+        {
+            System.Windows.MessageBox.Show(this, $"Failed to remove startup entry: {err}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            RunAtStartupCheck.IsChecked = true;
+        }
     }
 
     private void SaveConfig_Click(object sender, RoutedEventArgs e)
