@@ -101,20 +101,75 @@ if ($LASTEXITCODE -ne 0) {
 Write-Info "Publish complete. Preparing install directory: $InstallDir"
 if (-not (Test-Path $InstallDir)) { New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null }
 
+# If the app is already running, attempt to close it so files can be overwritten
+$foundProcesses = @()
+$allProcs = Get-Process -ErrorAction SilentlyContinue
+foreach ($p in $allProcs) {
+    try {
+        $mf = $p.MainModule.FileName
+        if ($mf -ieq $exePath) { $foundProcesses += $p; continue }
+    } catch {}
+    if ($p.ProcessName -ieq $assemblyName -or $p.ProcessName -like "$($assemblyName)*") { $foundProcesses += $p }
+}
+
+if ($foundProcesses.Count -gt 0) {
+    Write-Info "Detected running process(es) for '$assemblyName'. Attempting to close..."
+    foreach ($p in $foundProcesses) {
+        try {
+            if ($p.CloseMainWindow()) {
+                Write-Info "Sent close request to process $($p.Id). Waiting up to 10s for exit..."
+                $sw = [System.Diagnostics.Stopwatch]::StartNew()
+                while (-not $p.HasExited -and $sw.Elapsed.TotalSeconds -lt 10) { Start-Sleep -Milliseconds 200; $p.Refresh() }
+                $sw.Stop()
+            }
+            if (-not $p.HasExited) {
+                Write-Info "Process $($p.Id) did not exit; stopping forcefully..."
+                Stop-Process -Id $p.Id -Force -ErrorAction Stop
+                Start-Sleep -Milliseconds 500
+            } else {
+                Write-Info "Process $($p.Id) exited."
+            }
+        } catch {
+            Write-Warning "Could not stop process $($p.Id): $_. Attempting force stop."
+            try { Stop-Process -Id $p.Id -Force -ErrorAction Stop } catch { Write-Warning "Failed to stop process $($p.Id): $_" }
+        }
+    }
+    # Give the OS a moment to release file handles
+    Start-Sleep -Seconds 1
+}
+
 # Copy files: overwrite non-appsettings; only copy appsettings* if they don't exist yet
 $publishedFiles = Get-ChildItem -Path $publishTemp -File
+
+function Copy-WithRetry($source, $destination, $attempts = 5) {
+    for ($i = 1; $i -le $attempts; $i++) {
+        try {
+            Copy-Item -Path $source -Destination $destination -Force -ErrorAction Stop
+            return $true
+        } catch {
+            Write-Warning "Copy attempt $i failed for '$destination': $_"
+            if ($i -lt $attempts) { Start-Sleep -Seconds (2 * $i) } else { throw }
+        }
+    }
+}
+
 foreach ($f in $publishedFiles) {
     $dest = Join-Path $InstallDir $f.Name
     if ($f.Name -like 'appsettings*') {
         if (-not (Test-Path $dest)) {
-            Copy-Item -Path $f.FullName -Destination $dest -Force
+            Copy-WithRetry $f.FullName $dest
             Write-Info "Copied (new) $($f.Name)"
         } else {
             Write-Info "Skipped existing $($f.Name)"
         }
     } else {
-        Copy-Item -Path $f.FullName -Destination $dest -Force
-        Write-Info "Copied $($f.Name)"
+        try {
+            Copy-WithRetry $f.FullName $dest
+            Write-Info "Copied $($f.Name)"
+        } catch {
+            Write-Warning "Failed to copy $($f.Name) after retries: $_"
+            # Continue with next file; do not abort entire install here
+        }
     }
 }
 
@@ -137,7 +192,7 @@ try {
     $shortcut = $shell.CreateShortcut($shortcutPath)
     $shortcut.TargetPath = $exePath
     $shortcut.WorkingDirectory = $InstallDir
-    $shortcut.Description = "VolumeAssistant tray app — syncs Windows volume with Cambridge Audio"
+    $shortcut.Description = "VolumeAssistant tray app - syncs Windows volume with Cambridge Audio"
     $shortcut.Save()
     Write-Info "Start Menu shortcut created: $shortcutPath"
 } catch {
@@ -158,4 +213,11 @@ if ($AddStartup) {
 Write-Info "Cleaning up temporary publish directory."
 try { Remove-Item -Recurse -Force $publishTemp } catch {}
 
-Write-Info "Install complete. Run '$exePath' to start the tray app."
+try {
+    Write-Info "Install complete. Starting app: $exePath"
+    Start-Process -FilePath $exePath -WorkingDirectory $InstallDir -ErrorAction Stop
+    Write-Info "App started."
+} catch {
+    Write-Warning "Failed to start app automatically: $_"
+    Write-Info "Install complete. Run '$exePath' to start the tray app."
+}
