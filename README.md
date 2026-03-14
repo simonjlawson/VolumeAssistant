@@ -4,10 +4,10 @@
 Directly syncs Windows volume with external Matter devices and integrates a Cambridge Audio StreamMagic device with the PC.
 
 ## Functionality
-A Windows service (and system tray app) that can expose the Windows master volume as a **Matter** smart home device on the local network for other devices to match. Connects to Cambridge Audio StreamMagic devices and directly syncs Windows volume. A Home Assistant, Google Home, or Apple Home controller can discover, commission, and control the Windows PC volume as if it were a dimmable light — where the *brightness* (level 0–254) maps directly to *volume* (0–100%).
+A Windows service/Tray App that can expose the Windows master volume as a **Matter** smart home device on the local network for other devices to match. Connects to Cambridge Audio StreamMagic devices and directly syncs Windows volume. A Home Assistant, Google Home, or Apple Home controller can discover, commission, and control the Windows PC volume as if it were a dimmable light — where the *brightness* (level 0–254) maps directly to *volume* (0–100%).
 
-- **Windows Service** (`VolumeAssistant.Service`) – runs in the background without a UI, starts automatically with Windows.
-- **System Tray App** (`VolumeAssistant.App`) – runs as a WPF app in the system tray with a UI window for connection info, configuration, and live log output. Same functionality as the service via shared core code.
+- **Windows Service** (`VolumeAssistant.Service`) – runs in the background without a UI, starts automatically with Windows, limited to volume handling, no key presses can be intercepted.
+- **System Tray App** (`VolumeAssistant.App`) – a tiny app running the same code but able to intercept media keys and Shift+SCRLK for source switching.
 - **Real-time volume sync** – whenever the master volume changes in Windows, the change is immediately reported to all subscribed Matter controllers.
 - **Two-way control** – Matter controllers can set the volume (Level Control cluster) or mute it (On/Off cluster).
 - **mDNS advertisement** – the device is automatically discoverable via DNS-SD (`_matterc._udp` + `_matter._tcp`).
@@ -47,15 +47,9 @@ StreamMagic is as simple as integrations get so the service should be universal,
 
 ## Installation
 
-### System Tray App (recommended for desktop use)
+### App (recommended)
 
-Run the tray-app install script. The app launches on demand — no Windows service required.
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistantApp.ps1
-```
-
-To also start automatically on Windows login, add the `-AddStartup $true` flag:
+Install the tray-app, Windows service not required.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistantApp.ps1 -AddStartup $true
@@ -63,7 +57,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistantApp.ps
 
 ### Windows Service (for headless / server use)
 
-Run the service install convenience script, then configure the appsettings.json file:
+Install the service, then configure the appsettings.json file:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistant.ps1
