@@ -31,24 +31,54 @@ public partial class App : System.Windows.Application
     internal ICambridgeAudioClient? CambridgeAudioClient { get; private set; }
     internal IOptions<CambridgeAudioOptions>? CambridgeOptions { get; private set; }
 
+    /// <summary>
+    /// Completes once the host has been built, services resolved (including any
+    /// SSDP device discovery), and the host has started. The main window awaits
+    /// this task so the UI shows loading spinners instead of blocking.
+    /// </summary>
+    internal Task HostReadyTask { get; private set; } = Task.CompletedTask;
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
-        _host = BuildHost();
-        CambridgeAudioClient = _host.Services.GetService<ICambridgeAudioClient>();
-        CambridgeOptions = _host.Services.GetService<IOptions<CambridgeAudioOptions>>();
-
+        // Show the tray icon immediately so the app feels responsive.
         CreateTrayIcon();
-        _ = _host.StartAsync();
+
+        // Build and start the host on a background thread. Cambridge Audio
+        // SSDP discovery (DiscoverFirstAsync) can take several seconds; running
+        // it off the UI thread prevents blocking the tray icon and main window.
+        var uiDispatcher = Dispatcher;
+        HostReadyTask = Task.Run(async () =>
+        {
+            var host = BuildHost();
+
+            // Resolving ICambridgeAudioClient triggers the DI factory which may
+            // perform SSDP discovery — kept on the background thread intentionally.
+            var cambridgeClient = host.Services.GetService<ICambridgeAudioClient>();
+            var cambridgeOptions = host.Services.GetService<IOptions<CambridgeAudioOptions>>();
+
+            await host.StartAsync().ConfigureAwait(false);
+
+            // Marshal the resolved references back to the UI thread.
+            await uiDispatcher.InvokeAsync(() =>
+            {
+                _host = host;
+                CambridgeAudioClient = cambridgeClient;
+                CambridgeOptions = cambridgeOptions;
+            });
+        });
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
         _notifyIcon?.Dispose();
-        using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(5));
-        _host?.StopAsync(cts.Token).GetAwaiter().GetResult();
-        _host?.Dispose();
+        if (_host != null)
+        {
+            using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(5));
+            _host.StopAsync(cts.Token).GetAwaiter().GetResult();
+            _host.Dispose();
+        }
         base.OnExit(e);
     }
 
@@ -98,6 +128,8 @@ public partial class App : System.Windows.Application
                 "CambridgeAudio:Enable is true but no Host configured — attempting SSDP discovery…");
             try
             {
+                // GetAwaiter().GetResult() is safe here: this factory is called from
+                // Task.Run (no synchronisation context), so no deadlock can occur.
                 host = CambridgeAudioDiscovery.DiscoverFirstAsync().GetAwaiter().GetResult();
                 if (host == null)
                 {

@@ -13,8 +13,8 @@ namespace VolumeAssistant.App;
 /// </summary>
 public partial class MainWindow : Window
 {
-    private readonly ICambridgeAudioClient? _cambridgeClient;
-    private readonly IAudioController? _audioController;
+    private ICambridgeAudioClient? _cambridgeClient;
+    private IAudioController? _audioController;
     private readonly ObservableCollection<string> _logEntries;
     private readonly System.Windows.Threading.DispatcherTimer _refreshTimer;
 
@@ -23,40 +23,74 @@ public partial class MainWindow : Window
         InitializeComponent();
 
         var app = (App)System.Windows.Application.Current;
-        _cambridgeClient = app.CambridgeAudioClient;
-        _audioController = null; // resolved below if available
         _logEntries = app.LogEntries;
 
-        // Try to get the audio controller from the host services
-        if (app.AppHost != null)
-        {
-            _audioController = app.AppHost.Services.GetService(typeof(IAudioController)) as IAudioController;
-        }
-
-        // Bind log entries to the list box
+        // Bind log entries immediately — no async work required for the Logs tab.
         LogListBox.ItemsSource = _logEntries;
         _logEntries.CollectionChanged += OnLogEntriesChanged;
 
-        // Subscribe to Cambridge Audio state changes
-        if (_cambridgeClient != null)
-        {
-            _cambridgeClient.StateChanged += OnCambridgeStateChanged;
-            _cambridgeClient.ConnectionChanged += OnCambridgeConnectionChanged;
-        }
+        // Show loading overlays while the host initialises in the background.
+        SetLoadingState(true);
 
-        // Populate config tab
-        PopulateConfigTab(app);
-
-        // Initial data refresh
-        RefreshConnectionInfo();
-
-        // Poll every 2 seconds to keep audio info current
+        // Create the timer now but start it only after initialisation completes.
         _refreshTimer = new System.Windows.Threading.DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(2)
         };
         _refreshTimer.Tick += (_, _) => RefreshConnectionInfo();
-        _refreshTimer.Start();
+
+        // Await host initialisation asynchronously once the window is visible so
+        // loading spinners are rendered before the await begins.
+        Loaded += async (_, _) => await FinishInitializingAsync(app);
+    }
+
+    /// <summary>
+    /// Awaits <see cref="App.HostReadyTask"/> then wires up services, populates
+    /// the UI, hides the loading overlays, and starts the refresh timer.
+    /// </summary>
+    private async Task FinishInitializingAsync(App app)
+    {
+        try
+        {
+            await app.HostReadyTask.ConfigureAwait(true); // resume on UI thread
+
+            // Resolve services now that the host is ready.
+            _cambridgeClient = app.CambridgeAudioClient;
+            if (app.AppHost != null)
+                _audioController = app.AppHost.Services.GetService(typeof(IAudioController)) as IAudioController;
+
+            // Subscribe to Cambridge Audio state changes.
+            if (_cambridgeClient != null)
+            {
+                _cambridgeClient.StateChanged += OnCambridgeStateChanged;
+                _cambridgeClient.ConnectionChanged += OnCambridgeConnectionChanged;
+            }
+
+            // Populate UI panels now that all data is available.
+            PopulateConfigTab(app);
+            RefreshConnectionInfo();
+
+            // Hide loading overlays and start the polling timer.
+            SetLoadingState(false);
+            _refreshTimer.Start();
+        }
+        catch (Exception ex)
+        {
+            StatusBarText.Text = $"Initialisation error: {ex.Message}";
+            SetLoadingState(false);
+        }
+    }
+
+    /// <summary>Shows or hides the loading overlay on the Connection and Configuration tabs.</summary>
+    private void SetLoadingState(bool isLoading)
+    {
+        var loading = isLoading ? Visibility.Visible : Visibility.Collapsed;
+        var content = isLoading ? Visibility.Collapsed : Visibility.Visible;
+
+        ConnectionLoadingOverlay.Visibility = loading;
+        ConnectionContent.Visibility = content;
+        ConfigLoadingOverlay.Visibility = loading;
+        ConfigContent.Visibility = content;
     }
 
     protected override void OnClosed(EventArgs e)

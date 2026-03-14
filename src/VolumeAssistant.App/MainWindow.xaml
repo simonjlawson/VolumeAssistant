@@ -43,6 +43,16 @@
         <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="#CCCCCC"/>
         </Style>
+
+        <!-- Loading spinner: indeterminate progress bar styled for the dark theme -->
+        <Style x:Key="LoadingSpinner" TargetType="ProgressBar">
+            <Setter Property="IsIndeterminate" Value="True"/>
+            <Setter Property="Height" Value="3"/>
+            <Setter Property="Width" Value="180"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="#333333"/>
+            <Setter Property="Foreground" Value="#7A7A7A"/>
+        </Style>
     </Window.Resources>
 
     <Grid>
@@ -56,97 +66,123 @@
 
             <!-- Connection Tab -->
             <TabItem Header="Connection">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#1E1E1E">
-                    <StackPanel Margin="16" x:Name="ConnectionPanel">
+                <Grid>
+                    <!-- Content shown after initialisation -->
+                    <ScrollViewer x:Name="ConnectionContent" VerticalScrollBarVisibility="Auto"
+                                  Background="#1E1E1E" Visibility="Collapsed">
+                        <StackPanel Margin="16" x:Name="ConnectionPanel">
 
-                        <TextBlock Text="Cambridge Audio" FontWeight="Bold" FontSize="14"
-                                   Foreground="White" Margin="0,0,0,8"/>
+                            <TextBlock Text="Cambridge Audio" FontWeight="Bold" FontSize="14"
+                                       Foreground="White" Margin="0,0,0,8"/>
 
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="160"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="160"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
 
-                            <Label Grid.Row="0" Grid.Column="0" Content="Status:"/>
-                            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="CaStatusText"
-                                       Text="Disabled" VerticalAlignment="Center"/>
+                                <Label Grid.Row="0" Grid.Column="0" Content="Status:"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" x:Name="CaStatusText"
+                                           Text="Disabled" VerticalAlignment="Center"/>
 
-                            <Label Grid.Row="1" Grid.Column="0" Content="Host:"/>
-                            <TextBlock Grid.Row="1" Grid.Column="1" x:Name="CaHostText"
-                                       Text="—" VerticalAlignment="Center"/>
+                                <Label Grid.Row="1" Grid.Column="0" Content="Host:"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" x:Name="CaHostText"
+                                           Text="—" VerticalAlignment="Center"/>
 
-                            <Label Grid.Row="2" Grid.Column="0" Content="Device:"/>
-                            <TextBlock Grid.Row="2" Grid.Column="1" x:Name="CaDeviceText"
-                                       Text="—" VerticalAlignment="Center"/>
+                                <Label Grid.Row="2" Grid.Column="0" Content="Device:"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" x:Name="CaDeviceText"
+                                           Text="—" VerticalAlignment="Center"/>
 
-                            <Label Grid.Row="3" Grid.Column="0" Content="Zone:"/>
-                            <TextBlock Grid.Row="3" Grid.Column="1" x:Name="CaZoneText"
-                                       Text="—" VerticalAlignment="Center"/>
+                                <Label Grid.Row="3" Grid.Column="0" Content="Zone:"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" x:Name="CaZoneText"
+                                           Text="—" VerticalAlignment="Center"/>
 
-                            <Label Grid.Row="4" Grid.Column="0" Content="Volume:"/>
-                            <TextBlock Grid.Row="4" Grid.Column="1" x:Name="CaVolumeText"
-                                       Text="—" VerticalAlignment="Center"/>
-                        </Grid>
+                                <Label Grid.Row="4" Grid.Column="0" Content="Volume:"/>
+                                <TextBlock Grid.Row="4" Grid.Column="1" x:Name="CaVolumeText"
+                                           Text="—" VerticalAlignment="Center"/>
+                            </Grid>
 
-                        <Separator Background="#444" Margin="0,16"/>
+                            <Separator Background="#444" Margin="0,16"/>
 
-                        <TextBlock Text="Windows Audio" FontWeight="Bold" FontSize="14"
-                                   Foreground="White" Margin="0,0,0,8"/>
+                            <TextBlock Text="Windows Audio" FontWeight="Bold" FontSize="14"
+                                       Foreground="White" Margin="0,0,0,8"/>
 
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="160"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="160"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
 
-                            <Label Grid.Row="0" Grid.Column="0" Content="Volume:"/>
-                            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="WinVolumeText"
-                                       Text="—" VerticalAlignment="Center"/>
+                                <Label Grid.Row="0" Grid.Column="0" Content="Volume:"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" x:Name="WinVolumeText"
+                                           Text="—" VerticalAlignment="Center"/>
 
-                            <Label Grid.Row="1" Grid.Column="0" Content="Muted:"/>
-                            <TextBlock Grid.Row="1" Grid.Column="1" x:Name="WinMutedText"
-                                       Text="—" VerticalAlignment="Center"/>
-                        </Grid>
+                                <Label Grid.Row="1" Grid.Column="0" Content="Muted:"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" x:Name="WinMutedText"
+                                           Text="—" VerticalAlignment="Center"/>
+                            </Grid>
 
-                    </StackPanel>
-                </ScrollViewer>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- Loading overlay: visible until the host is ready -->
+                    <Grid x:Name="ConnectionLoadingOverlay" Background="#1E1E1E">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <ProgressBar Style="{StaticResource LoadingSpinner}"/>
+                            <TextBlock Text="Loading…" HorizontalAlignment="Center"
+                                       Margin="0,10,0,0" Foreground="#666666" FontSize="12"/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
             </TabItem>
 
             <!-- Configuration Tab -->
             <TabItem Header="Configuration">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#1E1E1E">
-                    <StackPanel Margin="16" x:Name="ConfigPanel">
+                <Grid>
+                    <!-- Content shown after initialisation -->
+                    <ScrollViewer x:Name="ConfigContent" VerticalScrollBarVisibility="Auto"
+                                  Background="#1E1E1E" Visibility="Collapsed">
+                        <StackPanel Margin="16" x:Name="ConfigPanel">
 
-                        <TextBlock Text="Cambridge Audio Settings" FontWeight="Bold" FontSize="14"
-                                   Foreground="White" Margin="0,0,0,8"/>
+                            <TextBlock Text="Cambridge Audio Settings" FontWeight="Bold" FontSize="14"
+                                       Foreground="White" Margin="0,0,0,8"/>
 
-                        <Grid x:Name="ConfigGrid">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="220"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                        </Grid>
+                            <Grid x:Name="ConfigGrid">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="220"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                            </Grid>
 
-                        <Separator Background="#444" Margin="0,16"/>
+                            <Separator Background="#444" Margin="0,16"/>
 
-                        <TextBlock Text="appsettings.json location" FontWeight="Bold" Foreground="White"
-                                   Margin="0,0,0,4"/>
-                        <TextBlock x:Name="AppSettingsPathText" Text="—" TextWrapping="Wrap"
-                                   Foreground="#AAAAAA"/>
-                    </StackPanel>
-                </ScrollViewer>
+                            <TextBlock Text="appsettings.json location" FontWeight="Bold" Foreground="White"
+                                       Margin="0,0,0,4"/>
+                            <TextBlock x:Name="AppSettingsPathText" Text="—" TextWrapping="Wrap"
+                                       Foreground="#AAAAAA"/>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- Loading overlay: visible until the host is ready -->
+                    <Grid x:Name="ConfigLoadingOverlay" Background="#1E1E1E">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <ProgressBar Style="{StaticResource LoadingSpinner}"/>
+                            <TextBlock Text="Loading settings…" HorizontalAlignment="Center"
+                                       Margin="0,10,0,0" Foreground="#666666" FontSize="12"/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
             </TabItem>
 
             <!-- Logs Tab -->
