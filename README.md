@@ -1,32 +1,45 @@
 # VolumeAssistant
 
 ## Summary
-Directly syncs Windows volume with external Matter devices and intergrates a Cambridge Audio StreamMagic device with the PC.
+Directly syncs Windows volume with external Matter devices and integrates a Cambridge Audio StreamMagic device with the PC.
 
 ## Functionality
-A Windows serivce that can expose the Windows master volume as a **Matter** smart home device on the local network for other devices to match. Connects to CambridgeAudio StreamMagic devices and directly syncs Windows volume.A Home Assistant, Google Home, or Apple Home controller can discover, commission, and control the Windows PC volume as if it were a dimmable light — where the *brightness* (level 0–254) maps directly to *volume* (0–100%).
+A Windows service (and system tray app) that can expose the Windows master volume as a **Matter** smart home device on the local network for other devices to match. Connects to Cambridge Audio StreamMagic devices and directly syncs Windows volume. A Home Assistant, Google Home, or Apple Home controller can discover, commission, and control the Windows PC volume as if it were a dimmable light — where the *brightness* (level 0–254) maps directly to *volume* (0–100%).
 
-- **Windows Service** – runs in the background without a UI, starts automatically with Windows.
+- **Windows Service** (`VolumeAssistant.Service`) – runs in the background without a UI, starts automatically with Windows.
+- **System Tray App** (`VolumeAssistant.App`) – runs as a WPF app in the system tray with a UI window for connection info, configuration, and live log output. Same functionality as the service via shared core code.
 - **Real-time volume sync** – whenever the master volume changes in Windows, the change is immediately reported to all subscribed Matter controllers.
 - **Two-way control** – Matter controllers can set the volume (Level Control cluster) or mute it (On/Off cluster).
 - **mDNS advertisement** – the device is automatically discoverable via DNS-SD (`_matterc._udp` + `_matter._tcp`).
 - **Matter protocol** – UDP server on port 5540 with standard Interaction Model: Read, Write, Subscribe, and Command operations.
-- **Cambridge Audio** - Direct intergration of Cambridge Audio API for Windows -> CA volume sync and configurable source/output/power control.
+- **Cambridge Audio** - Direct integration of Cambridge Audio API for Windows → CA volume sync and configurable source/output/power control.
   - Power On on login/wakeup
   - Power Off on shutdown/sleep
   - Switch to USB source on login
   - Windows volume effects Amped volume
   - 100% Windows volume can only be 30% in Amp
-  - Mute,Play/Pause,Next,Previous keys sent to device
+  - Mute, Play/Pause, Next, Previous keys sent to device
   - Shift+SCRLK cycles Amp source
 
 This integration is a partial C# port of the Python projects:
 [aiostreammagic](https://github.com/noahhusby/aiostreammagic)
 [stream_magic](https://github.com/sebk-666/stream_magic)
 
-## Compatability
+## Architecture
 
-StreamMagic is as simple as intergrations get so the service should be universal, please do get in contact to confirm/deny other devices work.
+The solution is split into three projects sharing common code:
+
+```
+VolumeAssistant.Core     — Shared library: Audio, Cambridge Audio, Matter, VolumeSyncCoordinator
+VolumeAssistant.Service  — Windows Service (headless, starts automatically)
+VolumeAssistant.App      — WPF System Tray App (UI window with connection info / config / logs)
+```
+
+Both `VolumeAssistant.Service` and `VolumeAssistant.App` reference `VolumeAssistant.Core` for all volume-sync logic.
+
+## Compatibility
+
+StreamMagic is as simple as integrations get so the service should be universal, please do get in contact to confirm/deny other devices work.
 
 | Device | Verified |
 |---|---|
@@ -34,7 +47,24 @@ StreamMagic is as simple as intergrations get so the service should be universal
 
 ## Installation
 
-Run the install convenience script, then configure the appsettings.json file
+### System Tray App (recommended for desktop use)
+
+Run the tray-app install script. The app launches on demand — no Windows service required.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistantApp.ps1
+```
+
+To also start automatically on Windows login, add the `-AddStartup $true` flag:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistantApp.ps1 -AddStartup $true
+```
+
+### Windows Service (for headless / server use)
+
+Run the service install convenience script, then configure the appsettings.json file:
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistant.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\Configure-AppSettings.ps1
@@ -53,14 +83,28 @@ Standard dotnet CLI commands to build, run, and test the solution:
 ```bash
 dotnet build VolumeAssistant.slnx
 dotnet run --project src/VolumeAssistant.Service
+dotnet run --project src/VolumeAssistant.App
 dotnet test tests/VolumeAssistant.Tests
 ```
 
+### System Tray App Window
+
+Double-click the speaker tray icon (or right-click → Open) to open the window. It shows three tabs:
+
+- **Connection** — Cambridge Audio device status (connected/disconnected, device name, current zone, volume) and Windows audio (current volume, mute state).
+- **Configuration** — Current Cambridge Audio settings loaded from `appsettings.json`, plus the path to the settings file.
+- **Logs** — Live log output from the app with a **Clear Logs** button.
+
 ### Scripts
 
-PowerShell Helper scripts `README-PS-SCRIPTS.md`.
+PowerShell Helper scripts: see `README-PS-SCRIPTS.md`.
 
-Install
+Install System Tray App
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistantApp.ps1
+```
+
+Install Windows Service
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistant.ps1
 ```
@@ -70,12 +114,12 @@ Configure
 powershell -ExecutionPolicy Bypass -File .\scripts\Configure-AppSettings.ps1
 ```
 
-Start
+Start Service
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Start-VolumeAssistant.ps1
 ```
 
-Stop
+Stop Service
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Stop-VolumeAssistant.ps1
 ```
