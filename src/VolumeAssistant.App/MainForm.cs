@@ -70,6 +70,17 @@ internal sealed class MainForm : Form
 
         BuildUi(app);
 
+        // Ensure the window/taskbar icon matches the tray icon rendering
+        try
+        {
+            // Use a larger size for the taskbar (32px) so the icon scales nicely
+            this.Icon = TrayIconRenderer.Create(32);
+        }
+        catch
+        {
+            // Swallow any platform-specific failures; not critical
+        }
+
         // Subscribe to Cambridge Audio events
         if (_cambridgeClient is not null)
         {

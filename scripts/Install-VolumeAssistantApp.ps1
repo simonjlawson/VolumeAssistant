@@ -14,7 +14,7 @@ build machine.
 Usage examples:
 
     .\scripts\Install-VolumeAssistantApp.ps1
-    .\scripts\Install-VolumeAssistantApp.ps1 -InstallDir "C:\Program Files\VolumeAssistantApp" -AddStartup $true
+    .\scripts\Install-VolumeAssistantApp.ps1 -InstallDir "C:\Program Files\VolumeAssistantApp" -AddStartup $false
 #>
 
 param(
@@ -27,7 +27,7 @@ param(
     # Native AOT publish by default (set to $false to fall back to framework-dependent publish)
     [bool]$PublishAot = $true,
     # Add a registry run key to start the tray app on Windows login
-    [bool]$AddStartup = $false
+    [bool]$AddStartup = $true
 )
 
 function Ensure-Administrator {
@@ -43,13 +43,16 @@ function Write-Info([string]$text) { Write-Host $text -ForegroundColor Cyan }
 Ensure-Administrator
 
 $scriptRoot = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
+if (-not $scriptRoot -and $PSScriptRoot) { $scriptRoot = $PSScriptRoot }
 
-# Resolve project path
-$candidates = @()
-$candidates += $ProjectPath
+# Resolve project path - prefer repository-root-relative resolution first so the script
+# works when invoked from any current directory (for example when the caller's CWD
+# is C:\Windows\system32). Try repo-root, then script-root, then the raw value.
 $repoRoot = Split-Path -Path $scriptRoot -Parent
+$candidates = @()
 if ($repoRoot) { $candidates += Join-Path $repoRoot $ProjectPath }
 $candidates += Join-Path $scriptRoot $ProjectPath
+$candidates += $ProjectPath
 
 $found = $null
 foreach ($cand in $candidates) {
