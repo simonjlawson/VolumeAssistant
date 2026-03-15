@@ -29,8 +29,8 @@ jobs:
           if [ -n "${{ github.event.inputs.version }}" ]; then
             echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
           else
-            # Use UTC datetime YYYYMMDDHHMMSS
-            version=$(date -u +"%Y%m%d%H%M%S")
+            # Use UTC datetime as SemVer-like: YYYY.MM.DD.HHMMSS
+            version=$(date -u +"%Y.%m.%d.%H%M%S")
             echo "version=$version" >> $GITHUB_OUTPUT
           fi
 
