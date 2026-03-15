@@ -1,0 +1,65 @@
+name: Release App
+
+on:
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: 'Build configuration'
+        required: false
+        default: 'Release'
+      version:
+        description: 'Optional version override (if empty the workflow will use UTC datetime)'
+        required: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Determine version
+        id: determine_version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            # Use UTC datetime YYYYMMDDHHMMSS
+            version=$(date -u +"%Y%m%d%H%M%S")
+            echo "version=$version" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish App
+        run: |
+          dotnet publish src/VolumeAssistant.App/VolumeAssistant.App.csproj -c "${{ github.event.inputs.configuration }}" -o publish -p:Version=${{ steps.determine_version.outputs.version }}
+
+      - name: Archive artifact
+        run: |
+          mkdir -p artifacts
+          zip -r artifacts/VolumeAssistant.App-${{ steps.determine_version.outputs.version }}.zip publish
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.determine_version.outputs.version }}
+          release_name: Release ${{ steps.determine_version.outputs.version }} - App
+          draft: false
+          prerelease: false
+
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/VolumeAssistant.App-${{ steps.determine_version.outputs.version }}.zip
+          asset_name: VolumeAssistant.App-${{ steps.determine_version.outputs.version }}.zip
+          asset_content_type: application/zip
