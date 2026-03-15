@@ -75,6 +75,13 @@ public sealed class CambridgeAudioOptions
     public bool StartPower { get; set; } = false;
 
     /// <summary>
+    /// When true the service will request the device to power on when a Windows volume
+    /// change is received and the device is connected but powered off. Defaults to true
+    /// (behaviour can be opted-out by setting this to false).
+    /// </summary>
+    public bool StartPowerOnVolumeChange { get; set; } = true;
+
+    /// <summary>
     /// When true the service will send a power-off command to the device before shutting down.
     /// Defaults to false.
     /// </summary>

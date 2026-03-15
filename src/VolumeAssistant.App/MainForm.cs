@@ -56,6 +56,7 @@ internal sealed class MainForm : Form
     private CheckBox _runAtStartupChk = null!;
     private Label _appSettingsPathLabel = null!;
     private CheckBox _useSourcePopupChk = null!;
+    private Button _advancedEditBtn = null!;
 
     // ── Logs tab controls ─────────────────────────────────────────────────────
     private ListBox _logListBox = null!;
@@ -81,14 +82,13 @@ internal sealed class MainForm : Form
         {
             // Swallow any platform-specific failures; not critical
         }
-
         // Subscribe to Cambridge Audio events
         if (_cambridgeClient is not null)
         {
             _cambridgeClient.StateChanged += OnCambridgeStateChanged;
             _cambridgeClient.ConnectionChanged += OnCambridgeConnectionChanged;
         }
-
+        // Subscribe to log changes
         // Subscribe to log changes
         _logEntries.CollectionChanged += OnLogEntriesChanged;
 
@@ -107,6 +107,185 @@ internal sealed class MainForm : Form
         _refreshTimer.Tick += (_, _) => RefreshConnectionInfo();
         _refreshTimer.Start();
     }
+
+/// <summary>
+/// Simple modal editor for editing appsettings.json as raw text and saving to per-user AppData.
+/// Shows line numbers in a read-only margin. Enter inserts a newline and JSON is validated before saving.
+/// </summary>
+internal sealed class AppSettingsEditorForm : Form
+{
+    private readonly string _targetPath;
+    private readonly RichTextBoxEx _editor = new();
+    private readonly RichTextBox _lineNumbers = new();
+
+    // Win32 message to get first visible line in an edit control
+    private const int EM_GETFIRSTVISIBLELINE = 0x00CE;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern int SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+    public AppSettingsEditorForm(string targetPath, string initialContent)
+    {
+        ArgumentNullException.ThrowIfNull(targetPath);
+        _targetPath = targetPath;
+
+        Text = "Edit appsettings.json";
+        Size = new Size(800, 600);
+        StartPosition = FormStartPosition.CenterParent;
+
+        var pathLabel = new Label
+        {
+            Text = _targetPath,
+            Dock = DockStyle.Top,
+            Height = 24,
+            AutoEllipsis = true,
+        };
+
+        // Line numbers box
+        _lineNumbers.ReadOnly = true;
+        _lineNumbers.Multiline = true;
+        _lineNumbers.Width = 60;
+        _lineNumbers.Dock = DockStyle.Left;
+        _lineNumbers.ScrollBars = RichTextBoxScrollBars.None;
+        _lineNumbers.BorderStyle = BorderStyle.None;
+        _lineNumbers.BackColor = SystemColors.ControlLight;
+        _lineNumbers.Font = new Font("Consolas", 10);
+
+        // Editor
+        _editor.Multiline = true;
+        _editor.Font = new Font("Consolas", 10);
+        _editor.Dock = DockStyle.Fill;
+        _editor.ScrollBars = RichTextBoxScrollBars.Both;
+        _editor.WordWrap = false;
+        _editor.AcceptsTab = true;
+        _editor.Text = initialContent ?? string.Empty;
+
+        _editor.TextChanged += (_, _) => UpdateLineNumbers();
+        _editor.VScrolled += (_, _) => SyncLineNumberScroll();
+        _editor.FontChanged += (_, _) => { _lineNumbers.Font = _editor.Font; UpdateLineNumbers(); };
+
+        var btnPanel = new Panel { Dock = DockStyle.Bottom, Height = 40 };
+        var saveBtn = new Button { Text = "Save", Width = 90, Left = 10, Top = 6 };
+        var cancelBtn = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Width = 90, Left = 110, Top = 6 };
+        saveBtn.Click += SaveBtn_Click;
+
+        btnPanel.Controls.Add(saveBtn);
+        btnPanel.Controls.Add(cancelBtn);
+
+        var container = new Panel { Dock = DockStyle.Fill };
+        container.Controls.Add(_editor);
+        container.Controls.Add(_lineNumbers);
+
+        Controls.Add(container);
+        Controls.Add(pathLabel);
+        Controls.Add(btnPanel);
+
+        // Do not set AcceptButton so Enter inside the multiline editor inserts a newline
+        // instead of submitting the form. Keep CancelButton for ESC behaviour.
+        CancelButton = cancelBtn;
+
+        UpdateLineNumbers();
+    }
+
+    private void UpdateLineNumbers()
+    {
+        try
+        {
+            int lines = Math.Max(1, _editor.Lines.Length);
+            var sb = new System.Text.StringBuilder();
+            for (int i = 1; i <= lines; i++)
+            {
+                sb.Append(i);
+                if (i < lines) sb.AppendLine();
+            }
+            _lineNumbers.Text = sb.ToString();
+
+            // Adjust width to digits
+            int digits = lines.ToString().Length;
+            var size = TextRenderer.MeasureText(new string('9', digits) + " ", _editor.Font);
+            _lineNumbers.Width = Math.Max(40, size.Width + 8);
+
+            SyncLineNumberScroll();
+        }
+        catch { }
+    }
+
+    private void SyncLineNumberScroll()
+    {
+        try
+        {
+            int first = SendMessage(_editor.Handle, EM_GETFIRSTVISIBLELINE, IntPtr.Zero, IntPtr.Zero);
+            if (first < 0) first = 0;
+            if (first >= _lineNumbers.Lines.Length) first = _lineNumbers.Lines.Length - 1;
+            if (first < 0) first = 0;
+
+            int idx = _lineNumbers.GetFirstCharIndexFromLine(first);
+            if (idx >= 0 && idx <= _lineNumbers.TextLength)
+            {
+                _lineNumbers.SelectionStart = idx;
+                _lineNumbers.SelectionLength = 0;
+                _lineNumbers.ScrollToCaret();
+            }
+        }
+        catch { }
+    }
+
+    private void SaveBtn_Click(object? sender, EventArgs e)
+    {
+        try
+        {
+            var text = _editor.Text ?? string.Empty;
+
+            // Treat empty/whitespace as an empty JSON object
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                text = "{}";
+            }
+
+            // Validate JSON before saving
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(text);
+            }
+            catch (System.Text.Json.JsonException jex)
+            {
+                MessageBox.Show(this, $"Invalid JSON: {jex.Message}", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var dir = Path.GetDirectoryName(_targetPath) ?? string.Empty;
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+
+            File.WriteAllText(_targetPath, text);
+            DialogResult = DialogResult.OK;
+            Close();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Failed to save configuration: {ex.Message}", "Save Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+}
+
+/// <summary>
+/// RichTextBox that exposes a VScrolled event when the control is scrolled.
+/// </summary>
+internal sealed class RichTextBoxEx : RichTextBox
+{
+    public event EventHandler? VScrolled;
+    private const int WM_VSCROLL = 0x0115;
+    private const int WM_MOUSEWHEEL = 0x020A;
+
+    protected override void WndProc(ref Message m)
+    {
+        base.WndProc(ref m);
+        if (m.Msg == WM_VSCROLL || m.Msg == WM_MOUSEWHEEL)
+        {
+            VScrolled?.Invoke(this, EventArgs.Empty);
+        }
+    }
+}
 
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
@@ -263,19 +442,33 @@ internal sealed class MainForm : Form
 
     private void SaveConfig_Click(object? sender, EventArgs e)
     {
-        var path = FindAppSettingsPath();
-        if (path.Contains("(not found)"))
-        {
-            MessageBox.Show(this,
-                "appsettings.json not found in application folder.",
-                "Save Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            return;
-        }
+        // Always save edited configuration to per-user AppData so changes are
+        // preserved across application upgrades. When loading, we prefer AppData
+        // if present (FindAppSettingsPath handles that). For saving, read the
+        // existing configuration from AppData if present, else from the
+        // application folder, else start a new JSON document.
+        var appDataPath = GetAppDataSettingsPath();
+        var sourcePath = FindAppSettingsPath();
+
+        // Determine a readable source JSON to preserve other settings
+        string? readablePath = null;
+        if (!sourcePath.Contains("(not found)") && File.Exists(sourcePath))
+            readablePath = sourcePath;
+        else if (File.Exists(Path.Combine(AppContext.BaseDirectory, "appsettings.json")))
+            readablePath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
 
         try
         {
-            var jsonText = File.ReadAllText(path);
-            var root = JsonNode.Parse(jsonText) ?? new JsonObject();
+            JsonNode root;
+            if (readablePath != null)
+            {
+                var jsonText = File.ReadAllText(readablePath);
+                root = JsonNode.Parse(jsonText) ?? new JsonObject();
+            }
+            else
+            {
+                root = new JsonObject();
+            }
             var caNode = root[CambridgeAudioOptions.SectionName] as JsonObject ?? new JsonObject();
 
             caNode["Enable"] = _enableChk.Checked;
@@ -302,10 +495,16 @@ internal sealed class MainForm : Form
             appNode["UseSourcePopup"] = _useSourcePopupChk.Checked;
             root[AppOptions.SectionName] = appNode;
 
-            File.WriteAllText(path, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            // Ensure AppData folder exists
+            var targetDir = Path.GetDirectoryName(appDataPath) ?? string.Empty;
+            if (!string.IsNullOrEmpty(targetDir) && !Directory.Exists(targetDir))
+                Directory.CreateDirectory(targetDir);
 
+            File.WriteAllText(appDataPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+
+            _appSettingsPathLabel.Text = appDataPath;
             MessageBox.Show(this,
-                "Configuration saved to appsettings.json. Restart the app to apply changes.",
+                "Configuration saved to your user AppData (appsettings.json). Restart the app to apply changes.",
                 "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         catch (Exception ex)
@@ -386,8 +585,52 @@ internal sealed class MainForm : Form
 
     private static string FindAppSettingsPath()
     {
+        // Prefer per-user AppData appsettings if present
+        var appData = GetAppDataSettingsPath();
+        if (File.Exists(appData)) return appData;
+
         var path = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
-        return File.Exists(path) ? path : $"{path} (not found)";
+        return File.Exists(path) ? path : $"{appData} (not found)";
+    }
+
+    private static string GetAppDataSettingsPath()
+    {
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var dir = Path.Combine(appData, "VolumeAssistant");
+        return Path.Combine(dir, "appsettings.json");
+    }
+
+    private void AdvancedEdit_Click(object? sender, EventArgs e)
+    {
+        // Determine source to load: prefer AppData, then app folder, else create new in AppData
+        var appDataPath = GetAppDataSettingsPath();
+        var appFolderPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+
+        string initialPathToLoad;
+        if (File.Exists(appDataPath)) initialPathToLoad = appDataPath;
+        else if (File.Exists(appFolderPath)) initialPathToLoad = appFolderPath;
+        else initialPathToLoad = appDataPath; // new file will be saved to AppData
+
+        string initialContent = string.Empty;
+        try
+        {
+            if (File.Exists(initialPathToLoad))
+                initialContent = File.ReadAllText(initialPathToLoad);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Failed to read configuration: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+
+        using var dlg = new AppSettingsEditorForm(appDataPath, initialContent);
+        var result = dlg.ShowDialog(this);
+        if (result == DialogResult.OK)
+        {
+            // Refresh displayed path and notify user to restart
+            _appSettingsPathLabel.Text = FindAppSettingsPath();
+            MessageBox.Show(this, "Configuration saved to AppData. Restart the app to apply changes.", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
     }
 
     private async void CaConnectButton_Click(object? sender, EventArgs e)
@@ -678,6 +921,18 @@ internal sealed class MainForm : Form
         };
         saveBtn.Click += SaveConfig_Click;
         panel.Controls.Add(saveBtn);
+
+        var advancedBtn = new Button
+        {
+            Text = "Advanced Edit",
+            Left = 510,
+            Top = y,
+            Width = 110,
+            Height = 26,
+        };
+        advancedBtn.Click += AdvancedEdit_Click;
+        panel.Controls.Add(advancedBtn);
+        _advancedEditBtn = advancedBtn;
 
         y += 36;
 

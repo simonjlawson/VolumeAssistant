@@ -27,6 +27,10 @@ public sealed class VolumeSyncCoordinator
     private Delegate? _powerModeHandler;
     private Delegate? _sessionEndingHandler;
     private MediaKeyListener? _mediaKeyListener;
+    // Timestamp (Unix ms) of the last attempted power-on request triggered by a
+    // Windows volume change. Used to rate-limit repeated power-on attempts.
+    private long _lastPowerOnRequestMs;
+    private static readonly TimeSpan PowerOnRequestCooldown = TimeSpan.FromMinutes(2);
 
     // Internal test seam: allow tests to set or get the syncer instance directly.
     internal CambridgeAudioSyncer? CambridgeSyncer
@@ -287,6 +291,43 @@ public sealed class VolumeSyncCoordinator
             {
                 try
                 {
+                    // If the device is connected but currently powered off, request power on
+                    // so the subsequent volume command can take effect. Respect the option
+                    // to opt-out and rate-limit repeated requests.
+                    if (_cambridgeOptions.StartPowerOnVolumeChange && _cambridgeAudio.State?.Power == false)
+                    {
+                        try
+                        {
+                            var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                            var last = Interlocked.Read(ref _lastPowerOnRequestMs);
+                            if (nowMs - last >= (long)PowerOnRequestCooldown.TotalMilliseconds)
+                            {
+                                // Attempt to claim the slot for requesting power-on so concurrent
+                                // handlers don't all issue the same request.
+                                if (Interlocked.CompareExchange(ref _lastPowerOnRequestMs, nowMs, last) == last)
+                                {
+                                    try
+                                    {
+                                        await _cambridgeAudio.PowerOnAsync().ConfigureAwait(false);
+                                        _logger.LogInformation("Cambridge Audio power-on requested (Windows volume change triggered power-on).");
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogWarning(ex, "Failed to request power-on for Cambridge Audio device when Windows volume changed.");
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                _logger.LogDebug("Skipping Cambridge Audio power-on request due to cooldown ({Cooldown}ms).", (long)PowerOnRequestCooldown.TotalMilliseconds);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Error while handling power-on request logic for Cambridge Audio on volume change.");
+                        }
+                    }
+
                     int? desiredCamVolume = null;
                     bool desiredMute = e.IsMuted;
 
@@ -618,8 +659,27 @@ public sealed class VolumeSyncCoordinator
                 {
                     try
                     {
-                        await _cambridgeAudio.PowerOnAsync().ConfigureAwait(false);
-                        _logger.LogInformation("Cambridge Audio powered on (System resume, StartPower enabled).");
+                        // When resuming from sleep the network or device may not be immediately
+                        // reachable. Wait for a short period for the Cambridge Audio client to
+                        // reconnect before attempting to send a power-on request.
+                        const int maxWaitMs = 30_000; // 30 seconds
+                        const int pollMs = 500;
+                        int waited = 0;
+                        while (!_cambridgeAudio.IsConnected && waited < maxWaitMs)
+                        {
+                            await Task.Delay(pollMs).ConfigureAwait(false);
+                            waited += pollMs;
+                        }
+
+                        if (_cambridgeAudio.IsConnected)
+                        {
+                            await _cambridgeAudio.PowerOnAsync().ConfigureAwait(false);
+                            _logger.LogInformation("Cambridge Audio powered on (System resume, StartPower enabled).");
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Cambridge Audio did not reconnect within the timeout after system resume; skipping power-on.");
+                        }
                     }
                     catch (Exception ex)
                     {
