@@ -55,6 +55,7 @@ internal sealed class MainForm : Form
     private TextBox _sourceNamesTb = null!;
     private CheckBox _runAtStartupChk = null!;
     private Label _appSettingsPathLabel = null!;
+    private CheckBox _useSourcePopupChk = null!;
 
     // ── Logs tab controls ─────────────────────────────────────────────────────
     private ListBox _logListBox = null!;
@@ -244,6 +245,20 @@ internal sealed class MainForm : Form
         _mediaKeysChk.Checked = opts.MediaKeysEnabled;
         _sourceSwitchingChk.Checked = opts.SourceSwitchingEnabled;
         _sourceNamesTb.Text = opts.SourceSwitchingNames ?? string.Empty;
+
+        // App-level options
+        try
+        {
+            var appOpts = app.AppHost?.Services.GetService<Microsoft.Extensions.Options.IOptions<AppOptions>>()?.Value;
+            if (appOpts is not null)
+            {
+                _useSourcePopupChk.Checked = appOpts.UseSourcePopup;
+            }
+        }
+        catch
+        {
+            // ignore; optional feature
+        }
     }
 
     private void SaveConfig_Click(object? sender, EventArgs e)
@@ -281,6 +296,11 @@ internal sealed class MainForm : Form
             caNode["SourceSwitchingNames"] = _sourceNamesTb.Text.Trim();
 
             root[CambridgeAudioOptions.SectionName] = caNode;
+
+            // App-level section
+            var appNode = root[AppOptions.SectionName] as JsonObject ?? new JsonObject();
+            appNode["UseSourcePopup"] = _useSourcePopupChk.Checked;
+            root[AppOptions.SectionName] = appNode;
 
             File.WriteAllText(path, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
 
@@ -577,6 +597,7 @@ internal sealed class MainForm : Form
         _mediaKeysChk = new CheckBox { Width = 20 };
         _sourceSwitchingChk = new CheckBox { Width = 20 };
         _sourceNamesTb = new TextBox();
+        _useSourcePopupChk = new CheckBox { Width = 20 };
 
         AddConfigRow("Enable", _enableChk);
         AddConfigRow("Host", _hostTb);
@@ -592,6 +613,7 @@ internal sealed class MainForm : Form
         AddConfigRow("Media Keys", _mediaKeysChk);
         AddConfigRow("Source Switching", _sourceSwitchingChk);
         AddConfigRow("Source Names", _sourceNamesTb);
+        AddConfigRow("Show Source Popup", _useSourcePopupChk);
 
         // Separator
         panel.Controls.Add(new Label

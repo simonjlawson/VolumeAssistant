@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using VolumeAssistant.App.Business;
 using VolumeAssistant.Core;
 using VolumeAssistant.Service.Audio;
@@ -18,7 +19,9 @@ namespace VolumeAssistant.App;
 /// </summary>
 internal sealed class TrayApplication : IDisposable
 {
-    private IHost? _host;
+        private IHost? _host;
+        private ISourcePopupFactory? _sourcePopupFactory;
+        private AppOptions? _appOptions;
     private NotifyIcon? _notifyIcon;
     private MainForm? _mainForm;
 
@@ -34,7 +37,13 @@ internal sealed class TrayApplication : IDisposable
             CambridgeAudioClient = _host.Services.GetService<ICambridgeAudioClient>();
             CambridgeOptions = _host.Services.GetService<IOptions<CambridgeAudioOptions>>();
 
+            // Retrieve app options and popup factory from DI
+            _appOptions = _host.Services.GetService<IOptions<AppOptions>>()?.Value;
+            _sourcePopupFactory = _host.Services.GetService<ISourcePopupFactory>();
+
             CreateTrayIcon();
+            // Subscribe to log entries to show a transient popup when the Cambridge Audio source is switched
+            LogEntries.CollectionChanged += OnLogEntriesChangedForPopup;
             _ = _host.StartAsync();
 
 #if DEBUG
@@ -81,6 +90,10 @@ internal sealed class TrayApplication : IDisposable
             builder.Configuration.GetSection(CambridgeAudioOptions.SectionName));
         builder.Services.AddSingleton<ICambridgeAudioClient>(sp => AppHostFactory.CreateCambridgeClient(sp));
 
+            // Application options and popup factory
+            builder.Services.Configure<AppOptions>(builder.Configuration.GetSection(AppOptions.SectionName));
+            builder.Services.AddSingleton<ISourcePopupFactory, DefaultSourcePopupFactory>();
+
         // Background worker
         builder.Services.AddHostedService<AppWorker>();
 
@@ -124,6 +137,49 @@ internal sealed class TrayApplication : IDisposable
         _notifyIcon?.Dispose();
         _notifyIcon = null;
         Application.Exit();
+    }
+
+    private void OnLogEntriesChangedForPopup(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action != NotifyCollectionChangedAction.Add || e.NewItems is null) return;
+
+        // Look at the newest added entries for a source-switch message
+        foreach (var item in e.NewItems)
+        {
+            if (item is not string s) continue;
+            // Respond to either a completed switch or an immediate request so the UI
+            // can show a transient popup right away when the media key is pressed.
+            if (!s.Contains("Source switched:", StringComparison.OrdinalIgnoreCase)
+                && !s.Contains("Source switch requested:", StringComparison.OrdinalIgnoreCase)) continue;
+
+            // Attempt to extract the destination/source name from the log message
+            var marker = s.Contains("Source switched:", StringComparison.OrdinalIgnoreCase)
+                ? "Source switched:"
+                : "Source switch requested:";
+            var mpos = s.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+            string payload = mpos >= 0 ? s.Substring(mpos + marker.Length).Trim() : s;
+
+            // Expected payload: "{From} → {To}" - take the part after the arrow if present
+            string display = payload;
+            var arrowIdx = payload.IndexOf('→');
+            if (arrowIdx >= 0 && arrowIdx + 1 < payload.Length)
+                display = payload.Substring(arrowIdx + 1).Trim();
+
+            // Create and show popup on UI thread (if enabled)
+            try
+            {
+                if (_appOptions?.UseSourcePopup ?? true)
+                {
+                    var factory = _sourcePopupFactory ?? _host?.Services.GetService<ISourcePopupFactory>() ?? new DefaultSourcePopupFactory();
+                    var popup = factory.Create(display);
+                    popup.ShowTemporary();
+                }
+            }
+            catch
+            {
+                // ignore any UI errors for robustness
+            }
+        }
     }
 }
 
