@@ -47,26 +47,23 @@ StreamMagic is as simple as integrations get so the service should be universal,
 
 ## Installation
 
-Quick install (recommended)
+### App Install
 
-- App (GUI): run as Administrator to download and install the latest App release:
+- Run Powershell as Administrator
+- Download [install script](https://github.com/simonjlawson/VolumeAssistant/blob/main/scripts/install-app.ps1)
+- Execute ``` powershell -ExecutionPolicy Bypass -File .\install-app.ps1 ```
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install-app.ps1
-```
+### Service Install
 
-- Service (headless): run as Administrator to download, install, and start the Windows service:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install-service.ps1
-```
+- Run Powershell as Administrator
+- Download [install script](https://github.com/simonjlawson/VolumeAssistant/blob/main/scripts/install-service.ps1)
+- Execute ``` powershell -ExecutionPolicy Bypass -File .\scripts\install-service.ps1 ```
 
 Notes
-- The installer scripts fetch the latest GitHub release whose tag starts with `App-` or `Service-` and install the matching zipped artifact produced by the repository workflows.
-- Workflows (manual trigger) live in `.github/workflows/release-app.yml` and `.github/workflows/release-service.yml` and tag releases `App-<version>` and `Service-<version>`.
+- The installer scripts fetch the latest GitHub release whose tag starts with `App-` or `Service-` and install the matching zip.
 - The service installer registers a Windows service named `VolumeAssistantService` that runs the framework-dependent `VolumeAssistant.Service.dll` with the system dotnet. For self-contained deployments adjust the script to point to the executable.
 
-Legacy/manual install
+### Manual install
 
 If you prefer to publish and install manually:
 
@@ -92,7 +89,7 @@ sc.exe start VolumeAssistant
   (install via Visual Studio Installer → *Desktop development with C++*, or the standalone *Build Tools for Visual Studio*)
 - No .NET runtime is required to **run** the published tray app — the Native AOT executable is fully self-contained
 
-### Build
+### Development
 
 Standard dotnet CLI commands to build, run, and test the solution:
 ```bash
@@ -107,7 +104,7 @@ Publish the tray app as a Native AOT self-contained executable (requires .NET SD
 dotnet publish src/VolumeAssistant.App -c Release -r win-x64 -o publish/App
 ```
 
-Or use the install script which does the same thing:
+Install locally with script:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistantApp.ps1
 ```
