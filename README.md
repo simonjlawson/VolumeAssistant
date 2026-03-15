@@ -7,7 +7,7 @@ Directly syncs Windows volume with external Matter devices and integrates a Camb
 A Windows service/Tray App that can expose the Windows master volume as a **Matter** smart home device on the local network for other devices to match. Connects to Cambridge Audio StreamMagic devices and directly syncs Windows volume. A Home Assistant, Google Home, or Apple Home controller can discover, commission, and control the Windows PC volume as if it were a dimmable light — where the *brightness* (level 0–254) maps directly to *volume* (0–100%).
 
 - **Windows Service** (`VolumeAssistant.Service`) – runs in the background without a UI, starts automatically with Windows, limited to volume handling, no key presses can be intercepted.
-- **System Tray App** (`VolumeAssistant.App`) – a tiny app running the same code but able to intercept media keys and Shift+SCRLK for source switching.
+- **System Tray App** (`VolumeAssistant.App`) – a tiny **Native AOT** Windows Forms app running the same code but able to intercept media keys and Shift+SCRLK for source switching.  Published as a single self-contained native executable with no .NET runtime dependency.
 - **Real-time volume sync** – whenever the master volume changes in Windows, the change is immediately reported to all subscribed Matter controllers.
 - **Two-way control** – Matter controllers can set the volume (Level Control cluster) or mute it (On/Off cluster).
 - **mDNS advertisement** – the device is automatically discoverable via DNS-SD (`_matterc._udp` + `_matter._tcp`).
@@ -32,7 +32,7 @@ The solution is split into three projects sharing common code:
 ```
 VolumeAssistant.Core     — Shared library: Audio, Cambridge Audio, Matter, VolumeSyncCoordinator
 VolumeAssistant.Service  — Windows Service (headless, starts automatically)
-VolumeAssistant.App      — WPF System Tray App (UI window with connection info / config / logs)
+VolumeAssistant.App      — Native AOT System Tray App (Windows Forms, no .NET runtime required when published)
 ```
 
 Both `VolumeAssistant.Service` and `VolumeAssistant.App` reference `VolumeAssistant.Core` for all volume-sync logic.
@@ -68,8 +68,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Configure-AppSettings.ps1
 
 ### Requirements
 
-- Windows 10
-- .NET 10.0 Runtime
+- Windows 10 or later (x64)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) — required to **build** the project
+- MSVC / Visual C++ Build Tools — required to **publish** the Native AOT tray app
+  (install via Visual Studio Installer → *Desktop development with C++*, or the standalone *Build Tools for Visual Studio*)
+- No .NET runtime is required to **run** the published tray app — the Native AOT executable is fully self-contained
 
 ### Build
 
@@ -81,13 +84,26 @@ dotnet run --project src/VolumeAssistant.App
 dotnet test tests/VolumeAssistant.Tests
 ```
 
+Publish the tray app as a Native AOT self-contained executable (requires .NET SDK + MSVC build tools):
+```bash
+dotnet publish src/VolumeAssistant.App -c Release -r win-x64 -o publish/App
+```
+
+Or use the install script which does the same thing:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistantApp.ps1
+```
+
 ### System Tray App Window
 
 Double-click the speaker tray icon (or right-click → Open) to open the window. It shows three tabs:
 
 - **Connection** — Cambridge Audio device status (connected/disconnected, device name, current zone, volume) and Windows audio (current volume, mute state).
-- **Configuration** — Current Cambridge Audio settings loaded from `appsettings.json`, plus the path to the settings file.
+- **Configuration** — Current Cambridge Audio settings loaded from `appsettings.json`, plus the path to the settings file.  Changes are saved back to `appsettings.json`; restart the app to apply them.
 - **Logs** — Live log output from the app with a **Clear Logs** button.
+
+> **Note:** The tray app is built with Windows Forms and published as a Native AOT executable.
+> All forms are created programmatically (no WPF/XAML required at runtime).
 
 ### Scripts
 

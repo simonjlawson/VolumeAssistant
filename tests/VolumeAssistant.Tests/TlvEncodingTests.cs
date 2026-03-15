@@ -134,7 +134,7 @@ public class TlvEncodingTests
 
         Assert.Equal(original.SessionId, decoded.SessionId);
         Assert.Equal(original.MessageCounter, decoded.MessageCounter);
-        Assert.Equal(original.Payload, decoded.Payload);
+        Assert.Equal(original.Payload, decoded.Payload.ToArray());
     }
 
     [Fact]
@@ -175,6 +175,6 @@ public class TlvEncodingTests
         Assert.Equal(original.Opcode, decoded.Opcode);
         Assert.Equal(original.ExchangeId, decoded.ExchangeId);
         Assert.Equal(original.ProtocolId, decoded.ProtocolId);
-        Assert.Equal(original.ApplicationPayload, decoded.ApplicationPayload);
+        Assert.Equal(original.ApplicationPayload, decoded.ApplicationPayload.ToArray());
     }
 }
