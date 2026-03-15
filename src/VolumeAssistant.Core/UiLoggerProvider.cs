@@ -62,14 +62,59 @@ internal sealed class UiLogger : ILogger
     {
         if (!IsEnabled(logLevel)) return;
 
-        var message = $"[{DateTime.Now:HH:mm:ss}] {LogLevelToPrefix(logLevel)} {_category}: {formatter(state, exception)}";
-        if (exception != null)
-            message += Environment.NewLine + exception.ToString();
+        // Build the formatted message once into a single string allocation to
+        // reduce transient string work and avoid concatenation churn.
+        string content = formatter(state, exception);
 
-        var captured = message;
+        // If an exception is present, include only the exception message (not full ToString)
+        // to keep in-memory logs compact. This preserves the important error text while
+        // avoiding large stack-trace strings in the UI log.
+        string? exPart = exception?.Message;
+
+        // Compute total length for single-allocation formatting.
+        // Pattern: "[HH:mm:ss] PRI Category: content" (+ " | exMessage" if present)
+        string timePart = DateTime.Now.ToString("HH:mm:ss");
+        string prefix = LogLevelToPrefix(logLevel);
+
+        int totalLength = 1 + timePart.Length + 1 + 1 // [time] and following space
+            + prefix.Length + 1 // prefix and space
+            + _category.Length + 2 // category + ": "
+            + content.Length;
+
+        if (!string.IsNullOrEmpty(exPart))
+            totalLength += 3 + exPart.Length; // " | " + ex message
+
+        string final = string.Create(totalLength, (timePart, prefix, content, exPart, category: _category), (span, stateTuple) =>
+        {
+            var (t, p, c, e, cat) = stateTuple;
+            int pos = 0;
+            span[pos++] = '[';
+            t.CopyTo(span.Slice(pos, t.Length));
+            pos += t.Length;
+            span[pos++] = ']';
+            span[pos++] = ' ';
+            p.CopyTo(span.Slice(pos, p.Length));
+            pos += p.Length;
+            span[pos++] = ' ';
+            cat.CopyTo(span.Slice(pos, cat.Length));
+            pos += cat.Length;
+            span[pos++] = ':';
+            span[pos++] = ' ';
+            c.CopyTo(span.Slice(pos, c.Length));
+            pos += c.Length;
+            if (!string.IsNullOrEmpty(e))
+            {
+                span[pos++] = ' ';
+                span[pos++] = '|';
+                span[pos++] = ' ';
+                e.CopyTo(span.Slice(pos, e.Length));
+                pos += e.Length;
+            }
+        });
+
         _dispatch(() =>
         {
-            _entries.Add(captured);
+            _entries.Add(final);
             while (_entries.Count > _maxEntries)
                 _entries.RemoveAt(0);
         });

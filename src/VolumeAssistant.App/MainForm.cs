@@ -24,11 +24,7 @@ internal sealed class MainForm : Form
     private readonly IAudioController? _audioController;
     private readonly ObservableCollection<string> _logEntries;
 
-    // ── Colours ───────────────────────────────────────────────────────────────
-    private static readonly Color DarkBg = Color.FromArgb(30, 30, 30);
-    private static readonly Color DarkBg2 = Color.FromArgb(45, 45, 45);
-    private static readonly Color DarkFg = Color.FromArgb(204, 204, 204);
-    private static readonly Color AccentBlue = Color.FromArgb(30, 144, 255);
+    // ── Theme (use centralized Theme class) ───────────────────────────────────
 
     // ── Connection tab controls ───────────────────────────────────────────────
     private Label _caStatusText = null!;
@@ -373,20 +369,22 @@ internal sealed class MainForm : Form
         Size = new Size(840, 520);
         MinimumSize = new Size(480, 360);
         StartPosition = FormStartPosition.CenterScreen;
-        BackColor = DarkBg;
-        ForeColor = DarkFg;
+        Theme.ApplyTo(this);
 
         var tabs = new TabControl
         {
             Dock = DockStyle.Fill,
-            BackColor = DarkBg,
+            Margin = new Padding(16),
+            //BackColor = Theme.Background,
+            //ForeColor = Theme.Foreground,
+            Font = Theme.DefaultFont
         };
 
         tabs.TabPages.Add(BuildConnectionTab());
         tabs.TabPages.Add(BuildConfigurationTab(app));
         tabs.TabPages.Add(BuildLogsTab());
 
-        var statusBar = new StatusStrip { BackColor = Color.FromArgb(37, 37, 37) };
+        var statusBar = new StatusStrip { BackColor = Theme.StatusBar };
         statusBar.Items.Add(new ToolStripStatusLabel("Running") { ForeColor = Color.FromArgb(170, 170, 170) });
 
         Controls.Add(tabs);
@@ -395,9 +393,9 @@ internal sealed class MainForm : Form
 
     private TabPage BuildConnectionTab()
     {
-        var page = new TabPage("Connection") { BackColor = DarkBg, ForeColor = DarkFg };
+        var page = new TabPage("Connection") { BackColor = Theme.Background, ForeColor = Theme.Foreground };
 
-        var panel = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = DarkBg };
+        var panel = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Theme.Background };
 
         int y = 16;
 
@@ -406,8 +404,8 @@ internal sealed class MainForm : Form
             panel.Controls.Add(new Label
             {
                 Text = title, Left = 16, Top = y, AutoSize = true,
-                Font = new Font(Font.FontFamily, 11, FontStyle.Bold),
-                ForeColor = Color.White,
+                Font = Theme.HeaderFont,
+                ForeColor = Theme.Foreground,
             });
             y += 26;
         }
@@ -422,7 +420,7 @@ internal sealed class MainForm : Form
             var val = new Label
             {
                 Text = "—", Left = 180, Top = y,
-                Width = 500, AutoSize = false, ForeColor = DarkFg
+                Width = 500, AutoSize = false, ForeColor = Theme.Foreground
             };
             panel.Controls.Add(lbl);
             panel.Controls.Add(val);
@@ -442,15 +440,15 @@ internal sealed class MainForm : Form
         {
             Text = "Connect", Left = 16, Top = y + 4,
             Width = 90, Height = 28,
-            BackColor = AccentBlue, ForeColor = Color.White, FlatStyle = FlatStyle.Flat
+            BackColor = Theme.Accent, ForeColor = Color.White, FlatStyle = FlatStyle.Flat
         };
-        _caConnectButton.FlatAppearance.BorderColor = Color.FromArgb(11, 97, 164);
+        _caConnectButton.FlatAppearance.BorderColor = Theme.AccentBorder;
         _caConnectButton.Click += CaConnectButton_Click;
         panel.Controls.Add(_caConnectButton);
         y += 40;
 
         // Separator
-        panel.Controls.Add(new Label { Left = 16, Top = y, Width = 700, Height = 1, BackColor = Color.FromArgb(68, 68, 68) });
+        panel.Controls.Add(new Label { Left = 16, Top = y, Width = 700, Height = 1, BackColor = Theme.PanelBorder });
         y += 16;
 
         // ── Windows Audio section ──
@@ -464,16 +462,16 @@ internal sealed class MainForm : Form
 
     private TabPage BuildConfigurationTab(TrayApplication app)
     {
-        var page = new TabPage("Configuration") { BackColor = DarkBg, ForeColor = DarkFg };
+        var page = new TabPage("Configuration") { BackColor = Theme.Background, ForeColor = Theme.Foreground };
 
-        var panel = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = DarkBg };
+        var panel = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Theme.Background };
 
         int y = 16;
 
         panel.Controls.Add(new Label
         {
             Text = "Cambridge Audio Settings", Left = 16, Top = y, AutoSize = true,
-            Font = new Font(Font.FontFamily, 11, FontStyle.Bold), ForeColor = Color.White,
+            Font = Theme.HeaderFont, ForeColor = Theme.Foreground,
         });
         y += 30;
 
@@ -487,27 +485,27 @@ internal sealed class MainForm : Form
             control.Left = 240;
             control.Top = y;
             control.Width = Math.Max(control.Width, 300);
-            control.BackColor = DarkBg2;
-            control.ForeColor = DarkFg;
+            control.BackColor = Theme.BackgroundAlt;
+            control.ForeColor = Theme.Foreground;
             panel.Controls.Add(label);
             panel.Controls.Add(control);
             y += 26;
             return (label, control);
         }
 
-        _enableChk = new CheckBox { ForeColor = Color.White, Width = 20 };
+        _enableChk = new CheckBox { ForeColor = Theme.Foreground, Width = 20 };
         _hostTb = new TextBox();
         _portTb = new TextBox();
         _zoneTb = new TextBox();
         _startSourceTb = new TextBox();
         _startVolumeTb = new TextBox();
         _startOutputTb = new TextBox();
-        _startPowerChk = new CheckBox { ForeColor = Color.White, Width = 20 };
-        _closePowerChk = new CheckBox { ForeColor = Color.White, Width = 20 };
-        _relativeVolumeChk = new CheckBox { ForeColor = Color.White, Width = 20 };
+        _startPowerChk = new CheckBox { ForeColor = Theme.Foreground, Width = 20 };
+        _closePowerChk = new CheckBox { ForeColor = Theme.Foreground, Width = 20 };
+        _relativeVolumeChk = new CheckBox { ForeColor = Theme.Foreground, Width = 20 };
         _maxVolumeTb = new TextBox();
-        _mediaKeysChk = new CheckBox { ForeColor = Color.White, Width = 20 };
-        _sourceSwitchingChk = new CheckBox { ForeColor = Color.White, Width = 20 };
+        _mediaKeysChk = new CheckBox { ForeColor = Theme.Foreground, Width = 20 };
+        _sourceSwitchingChk = new CheckBox { ForeColor = Theme.Foreground, Width = 20 };
         _sourceNamesTb = new TextBox();
 
         AddConfigRow("Enable", _enableChk);
@@ -528,7 +526,7 @@ internal sealed class MainForm : Form
         // Separator
         panel.Controls.Add(new Label
         {
-            Left = 16, Top = y, Width = 700, Height = 1, BackColor = Color.FromArgb(68, 68, 68)
+            Left = 16, Top = y, Width = 700, Height = 1, BackColor = Theme.PanelBorder
         });
         y += 12;
 
@@ -536,7 +534,7 @@ internal sealed class MainForm : Form
         _runAtStartupChk = new CheckBox
         {
             Text = "Run at startup", Left = 16, Top = y, AutoSize = true,
-            ForeColor = Color.White, BackColor = DarkBg,
+            ForeColor = Theme.Foreground, BackColor = Theme.Background,
         };
         _runAtStartupChk.CheckedChanged += (_, _) =>
         {
@@ -565,7 +563,7 @@ internal sealed class MainForm : Form
         var reloadBtn = new Button
         {
             Text = "Reload", Left = 350, Top = y, Width = 70, Height = 26,
-            BackColor = Color.FromArgb(51, 51, 51), ForeColor = Color.White, FlatStyle = FlatStyle.Flat
+            BackColor = Theme.ControlBackground, ForeColor = Theme.Foreground, FlatStyle = FlatStyle.Flat
         };
         reloadBtn.Click += ReloadConfig_Click;
         panel.Controls.Add(reloadBtn);
@@ -573,9 +571,9 @@ internal sealed class MainForm : Form
         var saveBtn = new Button
         {
             Text = "Save", Left = 430, Top = y, Width = 70, Height = 26,
-            BackColor = AccentBlue, ForeColor = Color.White, FlatStyle = FlatStyle.Flat
+            BackColor = Theme.Accent, ForeColor = Color.White, FlatStyle = FlatStyle.Flat
         };
-        saveBtn.FlatAppearance.BorderColor = Color.FromArgb(11, 97, 164);
+        saveBtn.FlatAppearance.BorderColor = Theme.AccentBorder;
         saveBtn.Click += SaveConfig_Click;
         panel.Controls.Add(saveBtn);
 
@@ -585,7 +583,7 @@ internal sealed class MainForm : Form
         panel.Controls.Add(new Label
         {
             Text = "appsettings.json location", Left = 16, Top = y, AutoSize = true,
-            Font = new Font(Font.FontFamily, Font.Size, FontStyle.Bold), ForeColor = Color.White,
+            Font = Theme.HeaderFont, ForeColor = Theme.Foreground,
         });
         y += 22;
 
@@ -602,13 +600,13 @@ internal sealed class MainForm : Form
 
     private TabPage BuildLogsTab()
     {
-        var page = new TabPage("Logs") { BackColor = DarkBg, ForeColor = DarkFg };
+        var page = new TabPage("Logs") { BackColor = Theme.Background, ForeColor = Theme.Foreground };
 
         _logListBox = new ListBox
         {
             Dock = DockStyle.Fill,
-            BackColor = Color.FromArgb(20, 20, 20),
-            ForeColor = DarkFg,
+            BackColor = Theme.LogBackground,
+            ForeColor = Theme.Foreground,
             Font = new Font("Consolas", 9),
             BorderStyle = BorderStyle.FixedSingle,
             HorizontalScrollbar = true,
@@ -623,8 +621,8 @@ internal sealed class MainForm : Form
             Text = "Clear Logs",
             Dock = DockStyle.Bottom,
             Height = 30,
-            BackColor = Color.FromArgb(51, 51, 51),
-            ForeColor = Color.White,
+            BackColor = Theme.ControlBackground,
+            ForeColor = Theme.Foreground,
             FlatStyle = FlatStyle.Flat
         };
         clearBtn.Click += (_, _) =>
