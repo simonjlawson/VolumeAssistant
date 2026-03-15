@@ -28,6 +28,9 @@ param(
     [bool]$PublishAot = $true,
     # Add a registry run key to start the tray app on Windows login
     [bool]$AddStartup = $true
+    ,
+    # Remove startup entries and shortcut instead of installing
+    [bool]$Uninstall = $false
 )
 
 function Ensure-Administrator {
@@ -61,6 +64,7 @@ foreach ($cand in $candidates) {
 
 if ($found) {
     $ProjectPath = $found
+    Write-Info "Resolved project path: $ProjectPath"
 } else {
     Write-Error "Project path '$ProjectPath' not found. Tried: $($candidates -join ', ')"
     exit 1
