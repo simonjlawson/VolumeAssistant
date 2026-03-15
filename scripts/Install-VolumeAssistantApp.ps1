@@ -1,9 +1,15 @@
 <##
 Install-VolumeAssistantApp.ps1
 
-Publishes the VolumeAssistant.App (system tray) project, copies the published files to an
-install directory (preserving existing appsettings.json), and creates a Start Menu shortcut
-plus an optional startup entry so the tray app launches automatically on Windows login.
+Publishes the VolumeAssistant.App (system tray) project as a Native AOT self-contained executable,
+copies the published files to an install directory (preserving existing appsettings.json), and
+creates a Start Menu shortcut plus an optional startup entry so the tray app launches automatically
+on Windows login.
+
+The project has <PublishAot>true</PublishAot> configured, so dotnet publish produces a single
+native executable with no .NET runtime dependency.  Requires the .NET 10 SDK (not just runtime)
+and the MSVC build tools (Visual Studio C++ workload or Build Tools) to be installed on the
+build machine.
 
 Usage examples:
 
@@ -16,10 +22,10 @@ param(
     [string]$Configuration = "Release",
     [string]$InstallDir = "$env:ProgramFiles\VolumeAssistantApp",
     [string]$AppName = "VolumeAssistant",
-    # Publish RID for self-contained publish
+    # Publish RID – must match the RuntimeIdentifier declared in the csproj (win-x64)
     [string]$Runtime = "win-x64",
-    # Publish self-contained by default
-    [bool]$SelfContained = $true,
+    # Native AOT publish by default (set to $false to fall back to framework-dependent publish)
+    [bool]$PublishAot = $true,
     # Add a registry run key to start the tray app on Windows login
     [bool]$AddStartup = $false
 )
@@ -79,7 +85,10 @@ try {
     exit 1
 }
 
-if ($SelfContained) {
+if ($PublishAot) {
+    # Native AOT publish: restore first to ensure the win-x64 runtime pack is available,
+    # then publish with AOT enabled.  The csproj already has <PublishAot>true</PublishAot>
+    # so no extra -p flag is needed, but it is repeated here for clarity.
     Write-Info "Running: dotnet restore -r $Runtime $($csproj.FullName)"
     dotnet restore -r $Runtime $csproj.FullName
     if ($LASTEXITCODE -ne 0) {
@@ -87,11 +96,19 @@ if ($SelfContained) {
         exit $LASTEXITCODE
     }
 
-    Write-Info "Running: dotnet publish -c $Configuration -r $Runtime --self-contained true -o $publishTemp $($csproj.FullName)"
-    dotnet publish --no-restore -c $Configuration -r $Runtime --self-contained true -o $publishTemp $csproj.FullName
+    Write-Info "Running: dotnet publish (Native AOT) -c $Configuration -r $Runtime -o $publishTemp $($csproj.FullName)"
+    dotnet publish --no-restore -c $Configuration -r $Runtime -p:PublishAot=true -o $publishTemp $csproj.FullName
 } else {
-    Write-Info "Running: dotnet publish -c $Configuration -o $publishTemp $($csproj.FullName)"
-    dotnet publish -c $Configuration -o $publishTemp $csproj.FullName
+    # Framework-dependent fallback (requires .NET 10 runtime on target machine)
+    Write-Info "Running: dotnet restore -r $Runtime $($csproj.FullName)"
+    dotnet restore -r $Runtime $csproj.FullName
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "dotnet restore failed (exit code $LASTEXITCODE)."
+        exit $LASTEXITCODE
+    }
+
+    Write-Info "Running: dotnet publish (self-contained) -c $Configuration -r $Runtime --self-contained true -o $publishTemp $($csproj.FullName)"
+    dotnet publish --no-restore -c $Configuration -r $Runtime --self-contained true -p:PublishAot=false -o $publishTemp $csproj.FullName
 }
 if ($LASTEXITCODE -ne 0) {
     Write-Error "dotnet publish failed (exit code $LASTEXITCODE)."

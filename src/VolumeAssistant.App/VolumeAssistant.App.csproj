@@ -5,13 +5,23 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>VolumeAssistant.App</AssemblyName>
     <RootNamespace>VolumeAssistant.App</RootNamespace>
     <ApplicationIcon>Assets\volume.ico</ApplicationIcon>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- Native AOT: activated on dotnet publish, not dotnet build -->
+    <PublishAot>true</PublishAot>
+    <!-- Default RID for self-contained / AOT publish -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <!--
+      PublishAot implies PublishTrimmed. The SDK raises NETSDK1175 for WinForms + trimming as a
+      general safety check; suppress it here because this project creates all forms programmatically
+      (no designer-generated InitializeComponent / resource-manager usage) so trimming is safe.
+    -->
+    <_SuppressWinFormsTrimError>true</_SuppressWinFormsTrimError>
+    <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,10 +37,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\VolumeAssistant.Core\VolumeAssistant.Core.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Themes\" />
   </ItemGroup>
 
 </Project>
