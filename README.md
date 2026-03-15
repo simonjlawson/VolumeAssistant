@@ -7,7 +7,7 @@ Directly syncs Windows volume with external Matter devices and integrates a Camb
 A Windows service/Tray App that can expose the Windows master volume as a **Matter** smart home device on the local network for other devices to match. Connects to Cambridge Audio StreamMagic devices and directly syncs Windows volume. A Home Assistant, Google Home, or Apple Home controller can discover, commission, and control the Windows PC volume as if it were a dimmable light — where the *brightness* (level 0–254) maps directly to *volume* (0–100%).
 
 - **Windows Service** (`VolumeAssistant.Service`) – runs in the background without a UI, starts automatically with Windows, limited to volume handling, no key presses can be intercepted.
-- **System Tray App** (`VolumeAssistant.App`) – a tiny **Native AOT** Windows Forms app running the same code but able to intercept media keys and Shift+SCRLK for source switching.  Published as a single self-contained native executable with no .NET runtime dependency.
+- **System Tray App** (`VolumeAssistant.App`) – a lightweight **Native AOT** Forms app able to intercept media keys and Shift+SCRLK for source switching.
 - **Real-time volume sync** – whenever the master volume changes in Windows, the change is immediately reported to all subscribed Matter controllers.
 - **Two-way control** – Matter controllers can set the volume (Level Control cluster) or mute it (On/Off cluster).
 - **mDNS advertisement** – the device is automatically discoverable via DNS-SD (`_matterc._udp` + `_matter._tcp`).
@@ -24,26 +24,6 @@ A Windows service/Tray App that can expose the Windows master volume as a **Matt
 This integration is a partial C# port of the Python projects:
 [aiostreammagic](https://github.com/noahhusby/aiostreammagic)
 [stream_magic](https://github.com/sebk-666/stream_magic)
-
-## Architecture
-
-The solution is split into three projects sharing common code:
-
-```
-VolumeAssistant.Core     — Shared library: Audio, Cambridge Audio, Matter, VolumeSyncCoordinator
-VolumeAssistant.Service  — Windows Service (headless, starts automatically)
-VolumeAssistant.App      — Native AOT System Tray App (Windows Forms, no .NET runtime required when published)
-```
-
-Both `VolumeAssistant.Service` and `VolumeAssistant.App` reference `VolumeAssistant.Core` for all volume-sync logic.
-
-## Compatibility
-
-StreamMagic is as simple as integrations get so the service should be universal, please do get in contact to confirm/deny other devices work.
-
-| Device | Verified |
-|---|---|
-| Evo 150 SE | Yes |
 
 ## Installation
 
@@ -78,6 +58,26 @@ dotnet publish src/VolumeAssistant.Service -c Release -r win-x64 -o publish/Serv
 sc.exe create VolumeAssistant binPath="C:\path\to\publish\VolumeAssistant.Service.exe" start=auto DisplayName="VolumeAssistant Matter Bridge"
 sc.exe start VolumeAssistant
 ```
+
+## Architecture
+
+The solution is split into three projects sharing common code:
+
+```
+VolumeAssistant.Core     — Shared library: Audio, Cambridge Audio, Matter, VolumeSyncCoordinator
+VolumeAssistant.Service  — Windows Service (headless, starts automatically)
+VolumeAssistant.App      — Native AOT System Tray App (Windows Forms, no .NET runtime required when published)
+```
+
+Both `VolumeAssistant.Service` and `VolumeAssistant.App` reference `VolumeAssistant.Core` for all volume-sync logic.
+
+## Compatibility
+
+StreamMagic is as simple as integrations get so the service should be universal, please do get in contact to confirm/deny other devices work.
+
+| Device | Verified |
+|---|---|
+| Evo 150 SE | Yes |
 
 ## Usage
 
