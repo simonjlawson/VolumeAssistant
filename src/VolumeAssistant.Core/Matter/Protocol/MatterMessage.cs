@@ -53,7 +53,7 @@ public sealed class MatterMessageHeader
     public ulong? DestinationNodeId { get; set; }
 
     /// <summary>The message payload bytes (after the header).</summary>
-    public ReadOnlyMemory<byte> Payload { get; set; } = ReadOnlyMemory<byte>.Empty;
+    public byte[] Payload { get; set; } = Array.Empty<byte>();
 
     /// <summary>
     /// Deserializes a Matter message header from raw bytes.
@@ -86,7 +86,7 @@ public sealed class MatterMessageHeader
             pos += 8;
         }
 
-        header.Payload = data.Slice(pos);
+        header.Payload = data.Slice(pos).ToArray();
         return header;
     }
 
@@ -118,9 +118,9 @@ public sealed class MatterMessageHeader
         if (DestinationNodeId.HasValue)
             AppendUInt64(buffer, DestinationNodeId.Value);
 
-        // Payload is ReadOnlyMemory<byte>; copy its contents into the buffer
-        if (!Payload.IsEmpty)
-            buffer.AddRange(Payload.Span.ToArray());
+        // Payload is a byte[]; copy its contents into the buffer
+        if (Payload != null && Payload.Length > 0)
+            buffer.AddRange(Payload);
 
         return buffer.ToArray();
     }
@@ -187,7 +187,7 @@ public sealed class ExchangeHeader
     public ushort ExchangeId { get; set; }
     public ushort ProtocolId { get; set; }
     public byte[]? AckMessageCounter { get; set; }
-    public ReadOnlyMemory<byte> ApplicationPayload { get; set; } = ReadOnlyMemory<byte>.Empty;
+    public byte[] ApplicationPayload { get; set; } = Array.Empty<byte>();
 
     public const byte FlagInitiator = 0x01;
     public const byte FlagAckMsg = 0x02;
@@ -219,7 +219,7 @@ public sealed class ExchangeHeader
             pos += 4;
         }
 
-        header.ApplicationPayload = data.Slice(pos);
+        header.ApplicationPayload = data.Slice(pos).ToArray();
         return header;
     }
 
@@ -236,8 +236,8 @@ public sealed class ExchangeHeader
         if (AckMessageCounter != null)
             buffer.AddRange(AckMessageCounter);
 
-        if (!ApplicationPayload.IsEmpty)
-            buffer.AddRange(ApplicationPayload.Span.ToArray());
+        if (ApplicationPayload != null && ApplicationPayload.Length > 0)
+            buffer.AddRange(ApplicationPayload);
 
         return buffer.ToArray();
     }
