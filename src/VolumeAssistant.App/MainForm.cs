@@ -263,6 +263,11 @@ internal sealed class MainForm : Form
         }
     }
 
+    private void InitializeComponent()
+    {
+
+    }
+
     private void ReloadConfig_Click(object? sender, EventArgs e)
     {
         _appSettingsPathLabel.Text = FindAppSettingsPath();
@@ -403,7 +408,10 @@ internal sealed class MainForm : Form
         {
             panel.Controls.Add(new Label
             {
-                Text = title, Left = 16, Top = y, AutoSize = true,
+                Text = title,
+                Left = 16,
+                Top = y,
+                AutoSize = true,
                 Font = Theme.HeaderFont,
                 ForeColor = Theme.Foreground,
             });
@@ -414,13 +422,21 @@ internal sealed class MainForm : Form
         {
             var lbl = new Label
             {
-                Text = labelText + ":", Left = 16, Top = y,
-                Width = 160, AutoSize = false, ForeColor = Color.FromArgb(200, 200, 200)
+                Text = labelText + ":",
+                Left = 16,
+                Top = y,
+                Width = 160,
+                AutoSize = false,
+                ForeColor = Color.FromArgb(200, 200, 200)
             };
             var val = new Label
             {
-                Text = "—", Left = 180, Top = y,
-                Width = 500, AutoSize = false, ForeColor = Theme.Foreground
+                Text = "—",
+                Left = 180,
+                Top = y,
+                Width = 500,
+                AutoSize = false,
+                ForeColor = Theme.Foreground
             };
             panel.Controls.Add(lbl);
             panel.Controls.Add(val);
@@ -438,9 +454,14 @@ internal sealed class MainForm : Form
 
         _caConnectButton = new Button
         {
-            Text = "Connect", Left = 16, Top = y + 4,
-            Width = 90, Height = 28,
-            BackColor = Theme.Accent, ForeColor = Color.White, FlatStyle = FlatStyle.Flat
+            Text = "Connect",
+            Left = 16,
+            Top = y + 4,
+            Width = 90,
+            Height = 28,
+            BackColor = Theme.Accent,
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat
         };
         _caConnectButton.FlatAppearance.BorderColor = Theme.AccentBorder;
         _caConnectButton.Click += CaConnectButton_Click;
@@ -470,8 +491,12 @@ internal sealed class MainForm : Form
 
         panel.Controls.Add(new Label
         {
-            Text = "Cambridge Audio Settings", Left = 16, Top = y, AutoSize = true,
-            Font = Theme.HeaderFont, ForeColor = Theme.Foreground,
+            Text = "Cambridge Audio Settings",
+            Left = 16,
+            Top = y,
+            AutoSize = true,
+            Font = Theme.HeaderFont,
+            ForeColor = Theme.Foreground,
         });
         y += 30;
 
@@ -479,8 +504,12 @@ internal sealed class MainForm : Form
         {
             var label = new Label
             {
-                Text = labelText + ":", Left = 16, Top = y + 2,
-                Width = 220, AutoSize = false, ForeColor = Color.FromArgb(200, 200, 200)
+                Text = labelText + ":",
+                Left = 16,
+                Top = y + 2,
+                Width = 220,
+                AutoSize = false,
+                ForeColor = Color.FromArgb(200, 200, 200)
             };
             control.Left = 240;
             control.Top = y;
@@ -526,15 +555,23 @@ internal sealed class MainForm : Form
         // Separator
         panel.Controls.Add(new Label
         {
-            Left = 16, Top = y, Width = 700, Height = 1, BackColor = Theme.PanelBorder
+            Left = 16,
+            Top = y,
+            Width = 700,
+            Height = 1,
+            BackColor = Theme.PanelBorder
         });
         y += 12;
 
         // Run at startup checkbox
         _runAtStartupChk = new CheckBox
         {
-            Text = "Run at startup", Left = 16, Top = y, AutoSize = true,
-            ForeColor = Theme.Foreground, BackColor = Theme.Background,
+            Text = "Run at startup",
+            Left = 16,
+            Top = y,
+            AutoSize = true,
+            ForeColor = Theme.Foreground,
+            BackColor = Theme.Background,
         };
         _runAtStartupChk.CheckedChanged += (_, _) =>
         {
@@ -562,16 +599,28 @@ internal sealed class MainForm : Form
         // Reload / Save buttons
         var reloadBtn = new Button
         {
-            Text = "Reload", Left = 350, Top = y, Width = 70, Height = 26,
-            BackColor = Theme.ControlBackground, ForeColor = Theme.Foreground, FlatStyle = FlatStyle.Flat
+            Text = "Reload",
+            Left = 350,
+            Top = y,
+            Width = 70,
+            Height = 26,
+            BackColor = Theme.ControlBackground,
+            ForeColor = Theme.Foreground,
+            FlatStyle = FlatStyle.Flat
         };
         reloadBtn.Click += ReloadConfig_Click;
         panel.Controls.Add(reloadBtn);
 
         var saveBtn = new Button
         {
-            Text = "Save", Left = 430, Top = y, Width = 70, Height = 26,
-            BackColor = Theme.Accent, ForeColor = Color.White, FlatStyle = FlatStyle.Flat
+            Text = "Save",
+            Left = 430,
+            Top = y,
+            Width = 70,
+            Height = 26,
+            BackColor = Theme.Accent,
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat
         };
         saveBtn.FlatAppearance.BorderColor = Theme.AccentBorder;
         saveBtn.Click += SaveConfig_Click;
@@ -582,15 +631,23 @@ internal sealed class MainForm : Form
         // appsettings.json path
         panel.Controls.Add(new Label
         {
-            Text = "appsettings.json location", Left = 16, Top = y, AutoSize = true,
-            Font = Theme.HeaderFont, ForeColor = Theme.Foreground,
+            Text = "appsettings.json location",
+            Left = 16,
+            Top = y,
+            AutoSize = true,
+            Font = Theme.HeaderFont,
+            ForeColor = Theme.Foreground,
         });
         y += 22;
 
         _appSettingsPathLabel = new Label
         {
-            Left = 16, Top = y, Width = 700, Height = 40,
-            AutoSize = false, ForeColor = Color.FromArgb(170, 170, 170)
+            Left = 16,
+            Top = y,
+            Width = 700,
+            Height = 40,
+            AutoSize = false,
+            ForeColor = Color.FromArgb(170, 170, 170)
         };
         panel.Controls.Add(_appSettingsPathLabel);
 
