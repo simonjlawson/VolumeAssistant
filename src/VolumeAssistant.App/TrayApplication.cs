@@ -1,12 +1,9 @@
-using System.Collections.ObjectModel;
-using System.Drawing;
-using System.IO;
-using System.Windows.Forms;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Collections.ObjectModel;
+using VolumeAssistant.App.Business;
 using VolumeAssistant.Core;
-using VolumeAssistant.Service;
 using VolumeAssistant.Service.Audio;
 using VolumeAssistant.Service.CambridgeAudio;
 using VolumeAssistant.Service.Matter;
@@ -31,17 +28,22 @@ internal sealed class TrayApplication : IDisposable
     internal IOptions<CambridgeAudioOptions>? CambridgeOptions { get; private set; }
 
     /// <summary>Builds the host, creates the tray icon and starts the Windows Forms message loop.</summary>
-    public void Run()
-    {
-        _host = BuildHost();
-        CambridgeAudioClient = _host.Services.GetService<ICambridgeAudioClient>();
-        CambridgeOptions = _host.Services.GetService<IOptions<CambridgeAudioOptions>>();
+        public void Run()
+        {
+            _host = BuildHost();
+            CambridgeAudioClient = _host.Services.GetService<ICambridgeAudioClient>();
+            CambridgeOptions = _host.Services.GetService<IOptions<CambridgeAudioOptions>>();
 
-        CreateTrayIcon();
-        _ = _host.StartAsync();
+            CreateTrayIcon();
+            _ = _host.StartAsync();
 
-        Application.Run();
-    }
+#if DEBUG
+            // When debugging, automatically open the main window so it's easier to debug UI
+            try { ShowMainForm(); } catch { }
+#endif
+
+            Application.Run();
+        }
 
     public void Dispose()
     {
@@ -137,45 +139,7 @@ internal static class TrayIconHelper
     [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     internal static Icon CreateSpeakerIcon()
     {
-        var asm = typeof(TrayApplication).Assembly;
-        var resourceName = Array.Find(
-            asm.GetManifestResourceNames(),
-            n => n.EndsWith("volume.ico", StringComparison.OrdinalIgnoreCase));
-
-        if (resourceName is not null)
-        {
-            using var stream = asm.GetManifestResourceStream(resourceName);
-            if (stream is not null)
-                return new Icon(stream, new Size(16, 16));
-        }
-
-        return DrawSpeakerIcon();
-    }
-
-    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-    private static Icon DrawSpeakerIcon()
-    {
-        using var bmp = new System.Drawing.Bitmap(16, 16,
-            System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        using var g = System.Drawing.Graphics.FromImage(bmp);
-        g.Clear(System.Drawing.Color.Transparent);
-
-        using var pen = new System.Drawing.Pen(System.Drawing.Color.White, 1.5f);
-        // Speaker body (trapezoid)
-        g.DrawPolygon(pen, new System.Drawing.Point[] {
-            new(2, 5), new(5, 5), new(9, 2), new(9, 13), new(5, 10), new(2, 10)
-        });
-        // Sound-wave arc
-        g.DrawArc(pen, 10, 4, 4, 7, -60, 120);
-
-        var hIcon = bmp.GetHicon();
-        using var iconFromHandle = Icon.FromHandle(hIcon);
-        using var ms = new MemoryStream();
-        iconFromHandle.Save(ms);
-        ms.Position = 0;
-        var result = new Icon(ms);
-        DestroyIcon(hIcon);
-        return result;
+        return TrayIconRenderer.Create();
     }
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]

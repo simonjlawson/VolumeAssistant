@@ -5,20 +5,20 @@ namespace VolumeAssistant.App;
 
 internal static class Theme
 {
-    // Refined palette
-    public static readonly Color Background = Color.FromArgb(18, 22, 28);       // dark navy
-    public static readonly Color BackgroundAlt = Color.FromArgb(28, 34, 42);    // slightly lighter
-    public static readonly Color Foreground = Color.FromArgb(230, 230, 230);    // near-white
-    public static readonly Color Accent = Color.FromArgb(0, 122, 204);          // pleasant blue
-    public static readonly Color AccentBorder = Color.FromArgb(0, 90, 153);     // darker accent
+    // Refined palette (light theme)
+    public static readonly Color Background = Color.FromArgb(245, 247, 250);    // very light
+    public static readonly Color BackgroundAlt = Color.FromArgb(232, 236, 240); // slightly darker
+    public static readonly Color Foreground = Color.FromArgb(32, 34, 36);       // near-black
+    public static readonly Color Accent = Color.FromArgb(0, 102, 204);          // pleasant blue
+    public static readonly Color AccentBorder = Color.FromArgb(0, 82, 164);     // darker accent
 
     // Supporting colours
-    public static readonly Color PanelBorder = Color.FromArgb(55, 65, 75);
-    public static readonly Color StatusBar = Color.FromArgb(15, 18, 22);
-    public static readonly Color ControlBackground = Color.FromArgb(36, 42, 50);
-    public static readonly Color LogBackground = Color.FromArgb(10, 12, 14);
-    public static readonly Color SecondaryForeground = Color.FromArgb(180, 180, 180);
-    public static readonly Color MutedForeground = Color.FromArgb(170, 170, 170);
+    public static readonly Color PanelBorder = Color.FromArgb(200, 205, 210);
+    public static readonly Color StatusBar = Color.FromArgb(230, 232, 235);
+    public static readonly Color ControlBackground = Color.FromArgb(255, 255, 255);
+    public static readonly Color LogBackground = Color.FromArgb(250, 251, 252);
+    public static readonly Color SecondaryForeground = Color.FromArgb(100, 100, 100);
+    public static readonly Color MutedForeground = Color.FromArgb(120, 120, 120);
 
     // Fonts
     public static readonly Font DefaultFont = new Font("Segoe UI", 9F, FontStyle.Regular);
@@ -69,6 +69,7 @@ internal static class Theme
     {
         b.FlatStyle = FlatStyle.Flat;
         b.BackColor = Accent;
+        // Keep button text readable on accent background
         b.ForeColor = Color.White;
         try { b.FlatAppearance.BorderColor = AccentBorder; } catch { }
         b.Font = DefaultFont;
@@ -76,7 +77,7 @@ internal static class Theme
 
     public static void StyleTextBox(TextBox t)
     {
-        t.BackColor = BackgroundAlt;
+        t.BackColor = ControlBackground;
         t.ForeColor = Foreground;
         t.BorderStyle = BorderStyle.FixedSingle;
         t.Font = DefaultFont;

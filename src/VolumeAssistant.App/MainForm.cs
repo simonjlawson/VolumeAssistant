@@ -1,14 +1,15 @@
-using System.Collections.ObjectModel;
-using System.Collections.Specialized;
-using System.Drawing;
-using System.IO;
-using System.Text.Json;
-using System.Text.Json.Nodes;
-using System.Windows.Forms;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.Text.Json;
+using System.Globalization;
+using System.Linq;
+using System.Reflection;
+using System.Text.Json.Nodes;
 using VolumeAssistant.Service.Audio;
 using VolumeAssistant.Service.CambridgeAudio;
+using VolumeAssistant.App.Business;
 
 namespace VolumeAssistant.App;
 
@@ -35,6 +36,7 @@ internal sealed class MainForm : Form
     private Button _caConnectButton = null!;
     private Label _winVolumeText = null!;
     private Label _winMutedText = null!;
+    private Label _buildDateText = null!;
 
     // ── Configuration tab controls ────────────────────────────────────────────
     private CheckBox _enableChk = null!;
@@ -163,8 +165,7 @@ internal sealed class MainForm : Form
             var state = _cambridgeClient.State;
             var info = _cambridgeClient.Info;
 
-            _caStatusText.Text = _cambridgeClient.IsConnected ? "Connected ✓" : "Disconnected";
-            _caStatusText.ForeColor = _cambridgeClient.IsConnected ? Color.LightGreen : Color.OrangeRed;
+            _caStatusText.Text = _cambridgeClient.IsConnected ? "Connected" : "Disconnected";
             _caHostText.Text = info is not null && !string.IsNullOrEmpty(info.UnitId) ? info.UnitId : "—";
             _caDeviceText.Text = info is not null ? $"{info.Name} ({info.Model})" : "—";
             _caZoneText.Text = state?.Source ?? "—";
@@ -185,6 +186,27 @@ internal sealed class MainForm : Form
         catch
         {
             // Ignore if audio controller not available on this platform
+        }
+
+        // Build timestamp (compile-time embedded as assembly metadata; convert UTC to local for display)
+        try
+        {
+            var asm = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
+            var buildMeta = asm.GetCustomAttributes<AssemblyMetadataAttribute>()
+                               .FirstOrDefault(a => a.Key == "BuildDateUtc");
+            if (buildMeta is not null &&
+                DateTime.TryParse(buildMeta.Value, null, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var dt))
+            {
+                _buildDateText.Text = dt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+            }
+            else
+            {
+                _buildDateText.Text = "—";
+            }
+        }
+        catch
+        {
+            _buildDateText.Text = "—";
         }
     }
 
@@ -329,6 +351,8 @@ internal sealed class MainForm : Form
         return AppContext.BaseDirectory;
     }
 
+    // Build timestamp is provided at compile time via generated BuildInfo.g.cs
+
     private static string FindAppSettingsPath()
     {
         var path = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
@@ -371,15 +395,20 @@ internal sealed class MainForm : Form
     private void BuildUi(TrayApplication app)
     {
         Text = "VolumeAssistant";
-        Size = new Size(840, 520);
+        Size = new Size(768, 640);
         MinimumSize = new Size(480, 360);
         StartPosition = FormStartPosition.CenterScreen;
         Theme.ApplyTo(this);
+        // Use the tray icon rendering as the main window icon so the UI and tray match
+        Icon = TrayIconRenderer.Create();
 
         var tabs = new TabControl
         {
             Dock = DockStyle.Fill,
         };
+
+        // Redraw when selection changes
+        tabs.SelectedIndexChanged += (_, _) => tabs.Invalidate();
 
         tabs.TabPages.Add(BuildConnectionTab());
         tabs.TabPages.Add(BuildConfigurationTab(app));
@@ -477,6 +506,10 @@ internal sealed class MainForm : Form
         AddSectionHeader("Windows Audio");
         (_, _winVolumeText) = AddRow("Volume");
         (_, _winMutedText) = AddRow("Muted");
+
+        // ── App section ──
+        AddSectionHeader("App");
+        (_, _buildDateText) = AddRow("Build Date");
 
         page.Controls.Add(panel);
         return page;
