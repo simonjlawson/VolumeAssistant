@@ -53,40 +53,40 @@ public sealed class MatterMessageHeader
     public ulong? DestinationNodeId { get; set; }
 
     /// <summary>The message payload bytes (after the header).</summary>
-    public byte[] Payload { get; set; } = Array.Empty<byte>();
+    public ReadOnlyMemory<byte> Payload { get; set; } = ReadOnlyMemory<byte>.Empty;
 
     /// <summary>
     /// Deserializes a Matter message header from raw bytes.
     /// </summary>
-    public static MatterMessageHeader Decode(ReadOnlySpan<byte> data)
+    public static MatterMessageHeader Decode(ReadOnlyMemory<byte> data)
     {
         if (data.Length < 8)
             throw new ArgumentException("Data too short for Matter message header.", nameof(data));
-
         var header = new MatterMessageHeader();
+        var span = data.Span;
         int pos = 0;
 
-        header.Flags = (MessageFlags)data[pos++];
-        header.SessionId = (ushort)(data[pos] | (data[pos + 1] << 8));
+        header.Flags = (MessageFlags)span[pos++];
+        header.SessionId = (ushort)(span[pos] | (span[pos + 1] << 8));
         pos += 2;
-        header.SecurityFlags = (SecurityFlags)data[pos++];
-        header.MessageCounter = (uint)(data[pos] | (data[pos + 1] << 8)
-            | (data[pos + 2] << 16) | (data[pos + 3] << 24));
+        header.SecurityFlags = (SecurityFlags)span[pos++];
+        header.MessageCounter = (uint)(span[pos] | (span[pos + 1] << 8)
+            | (span[pos + 2] << 16) | (span[pos + 3] << 24));
         pos += 4;
 
         if (header.Flags.HasFlag(MessageFlags.SourceNodeIdPresent))
         {
-            header.SourceNodeId = ReadUInt64(data, pos);
+            header.SourceNodeId = ReadUInt64(span, pos);
             pos += 8;
         }
 
         if (header.Flags.HasFlag(MessageFlags.DestinationNodeIdPresent))
         {
-            header.DestinationNodeId = ReadUInt64(data, pos);
+            header.DestinationNodeId = ReadUInt64(span, pos);
             pos += 8;
         }
 
-        header.Payload = data[pos..].ToArray();
+        header.Payload = data.Slice(pos);
         return header;
     }
 
@@ -118,7 +118,10 @@ public sealed class MatterMessageHeader
         if (DestinationNodeId.HasValue)
             AppendUInt64(buffer, DestinationNodeId.Value);
 
-        buffer.AddRange(Payload);
+        // Payload is ReadOnlyMemory<byte>; copy its contents into the buffer
+        if (!Payload.IsEmpty)
+            buffer.AddRange(Payload.Span.ToArray());
+
         return buffer.ToArray();
     }
 
@@ -184,7 +187,7 @@ public sealed class ExchangeHeader
     public ushort ExchangeId { get; set; }
     public ushort ProtocolId { get; set; }
     public byte[]? AckMessageCounter { get; set; }
-    public byte[] ApplicationPayload { get; set; } = Array.Empty<byte>();
+    public ReadOnlyMemory<byte> ApplicationPayload { get; set; } = ReadOnlyMemory<byte>.Empty;
 
     public const byte FlagInitiator = 0x01;
     public const byte FlagAckMsg = 0x02;
@@ -192,19 +195,19 @@ public sealed class ExchangeHeader
     public const byte FlagSecuredExtension = 0x08;
     public const byte FlagVendorPresent = 0x10;
 
-    public static ExchangeHeader Decode(ReadOnlySpan<byte> data)
+    public static ExchangeHeader Decode(ReadOnlyMemory<byte> data)
     {
         if (data.Length < 6)
             throw new ArgumentException("Data too short for exchange header.", nameof(data));
-
         var header = new ExchangeHeader();
+        var span = data.Span;
         int pos = 0;
 
-        header.ExchangeFlags = data[pos++];
-        header.Opcode = data[pos++];
-        header.ExchangeId = (ushort)(data[pos] | (data[pos + 1] << 8));
+        header.ExchangeFlags = span[pos++];
+        header.Opcode = span[pos++];
+        header.ExchangeId = (ushort)(span[pos] | (span[pos + 1] << 8));
         pos += 2;
-        header.ProtocolId = (ushort)(data[pos] | (data[pos + 1] << 8));
+        header.ProtocolId = (ushort)(span[pos] | (span[pos + 1] << 8));
         pos += 2;
 
         if ((header.ExchangeFlags & FlagVendorPresent) != 0)
@@ -212,11 +215,11 @@ public sealed class ExchangeHeader
 
         if ((header.ExchangeFlags & FlagAckMsg) != 0)
         {
-            header.AckMessageCounter = data.Slice(pos, 4).ToArray();
+            header.AckMessageCounter = span.Slice(pos, 4).ToArray();
             pos += 4;
         }
 
-        header.ApplicationPayload = data[pos..].ToArray();
+        header.ApplicationPayload = data.Slice(pos);
         return header;
     }
 
@@ -233,7 +236,9 @@ public sealed class ExchangeHeader
         if (AckMessageCounter != null)
             buffer.AddRange(AckMessageCounter);
 
-        buffer.AddRange(ApplicationPayload);
+        if (!ApplicationPayload.IsEmpty)
+            buffer.AddRange(ApplicationPayload.Span.ToArray());
+
         return buffer.ToArray();
     }
 }

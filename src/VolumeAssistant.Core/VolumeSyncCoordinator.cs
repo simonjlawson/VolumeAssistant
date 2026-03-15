@@ -415,7 +415,52 @@ public sealed class VolumeSyncCoordinator
         if (_cambridgeAudio == null || !_cambridgeAudio.IsConnected) return;
         if (!_cambridgeOptions.SourceSwitchingEnabled) return;
 
+        // Log an immediate informational entry so the UI can show a transient
+        // popup right away (before the async operation completes).
+        try
+        {
+            var target = TryGetNextTargetName();
+            _logger.LogInformation("Source switch requested: {Target}", target ?? string.Empty);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to compute next source name for popup.");
+        }
+
         _ = Task.Run(async () => await CycleSourceAsync().ConfigureAwait(false));
+    }
+
+    /// <summary>
+    /// Attempts to compute the next configured source name synchronously so the UI
+    /// can show a preview in a popup immediately when the user requests a source switch.
+    /// Returns null when the target cannot be determined.
+    /// </summary>
+    private string? TryGetNextTargetName()
+    {
+        try
+        {
+            var namesRaw = _cambridgeOptions.SourceSwitchingNames;
+            if (string.IsNullOrWhiteSpace(namesRaw)) return null;
+
+            var configuredNames = namesRaw
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (configuredNames.Length == 0) return null;
+
+            var sources = _cambridgeAudio?.Sources;
+            if (sources == null || sources.Count == 0) return null;
+
+            var currentSourceId = _cambridgeAudio.State?.Source ?? string.Empty;
+            var currentSource = sources.FirstOrDefault(s => s.Id.Equals(currentSourceId, StringComparison.OrdinalIgnoreCase));
+            var currentName = currentSource?.Name ?? string.Empty;
+
+            int currentIndex = Array.FindIndex(configuredNames, n => n.Equals(currentName, StringComparison.OrdinalIgnoreCase));
+            int nextIndex = currentIndex >= 0 ? (currentIndex + 1) % configuredNames.Length : 0;
+            return configuredNames[nextIndex];
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private void OnMediaKeyNextTrack(object? sender, EventArgs e)
