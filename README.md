@@ -47,21 +47,39 @@ StreamMagic is as simple as integrations get so the service should be universal,
 
 ## Installation
 
-### App (recommended)
+Quick install (recommended)
 
-Install the tray-app, Windows service not required.
+- App (GUI): run as Administrator to download and install the latest App release:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistantApp.ps1 -AddStartup $true
+powershell -ExecutionPolicy Bypass -File .\scripts\install-app.ps1
 ```
 
-### Windows Service (for headless / server use)
-
-Install the service, then configure the appsettings.json file:
+- Service (headless): run as Administrator to download, install, and start the Windows service:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistant.ps1
-powershell -ExecutionPolicy Bypass -File .\scripts\Configure-AppSettings.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\install-service.ps1
+```
+
+Notes
+- The installer scripts fetch the latest GitHub release whose tag starts with `App-` or `Service-` and install the matching zipped artifact produced by the repository workflows.
+- Workflows (manual trigger) live in `.github/workflows/release-app.yml` and `.github/workflows/release-service.yml` and tag releases `App-<version>` and `Service-<version>`.
+- The service installer registers a Windows service named `VolumeAssistantService` that runs the framework-dependent `VolumeAssistant.Service.dll` with the system dotnet. For self-contained deployments adjust the script to point to the executable.
+
+Legacy/manual install
+
+If you prefer to publish and install manually:
+
+```powershell
+# Publish a self-contained executable for the tray app
+dotnet publish src/VolumeAssistant.App -c Release -r win-x64 -o publish/App
+
+# Publish the service
+dotnet publish src/VolumeAssistant.Service -c Release -r win-x64 -o publish/Service
+
+# Install the Windows Service (run as Administrator)
+sc.exe create VolumeAssistant binPath="C:\path\to\publish\VolumeAssistant.Service.exe" start=auto DisplayName="VolumeAssistant Matter Bridge"
+sc.exe start VolumeAssistant
 ```
 
 ## Usage

@@ -59,8 +59,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ steps.determine_version.outputs.version }}
-          release_name: Release ${{ steps.determine_version.outputs.version }} - App
+          tag_name: App-${{ steps.determine_version.outputs.version }}
+          release_name: App Release ${{ steps.determine_version.outputs.version }}
           draft: false
           prerelease: false
 
