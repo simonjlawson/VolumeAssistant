@@ -27,16 +27,23 @@ jobs:
         id: determine_version
         run: |
           if [ -n "${{ github.event.inputs.version }}" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-          else
-            # Use UTC datetime as SemVer-like: YYYY.MM.DD.HHMMSS
-            version=$(date -u +"%Y.%m.%d.%H%M%S")
+            version="${{ github.event.inputs.version }}"
+            # derive short version (major.minor.patch) from provided value
+            version_short=$(echo "$version" | awk -F. '{print $1"."$2"."$3}')
             echo "version=$version" >> $GITHUB_OUTPUT
+            echo "version_short=$version_short" >> $GITHUB_OUTPUT
+          else
+            # Use UTC datetime as SemVer-like full: YYYY.MM.DD.HHMMSS
+            version=$(date -u +"%Y.%m.%d.%H%M%S")
+            # Use short version as major.minor.patch (YYYY.MM.DD) so AssemblyVersion parts stay small
+            version_short=$(date -u +"%Y.%m.%d")
+            echo "version=$version" >> $GITHUB_OUTPUT
+            echo "version_short=$version_short" >> $GITHUB_OUTPUT
           fi
 
       - name: Publish App
         run: |
-          dotnet publish src/VolumeAssistant.App/VolumeAssistant.App.csproj -c "${{ github.event.inputs.configuration }}" -o publish -p:Version=${{ steps.determine_version.outputs.version }}
+          dotnet publish src/VolumeAssistant.App/VolumeAssistant.App.csproj -c "${{ github.event.inputs.configuration }}" -o publish -p:Version=${{ steps.determine_version.outputs.version_short }} -p:AssemblyInformationalVersion=${{ steps.determine_version.outputs.version }}
 
       - name: Archive artifact
         run: |
