@@ -12,7 +12,8 @@
     <ApplicationIcon>Assets\volume.ico</ApplicationIcon>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <!-- Native AOT: activated on dotnet publish, not dotnet build -->
-    <PublishAot>true</PublishAot>
+    <!-- Disable Native AOT to allow built-in COM activation (NAudio WASAPI) -->
+    <PublishAot>false</PublishAot>
     <!-- Default RID for self-contained / AOT publish -->
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <!--
