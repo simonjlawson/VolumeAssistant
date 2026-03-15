@@ -102,9 +102,12 @@ internal sealed class TrayApplication : IDisposable
 
     private void CreateTrayIcon()
     {
+        var audioController = _host?.Services.GetService<IAudioController>();
+        var initialPercent = audioController?.GetVolumePercent() ?? 50f;
+        var initialMuted = audioController?.GetMuted() ?? false;
         _notifyIcon = new NotifyIcon
         {
-            Icon = TrayIconHelper.CreateSpeakerIcon(),
+            Icon = TrayIconHelper.CreateSpeakerIcon(initialPercent, initialMuted),
             Text = "VolumeAssistant",
             Visible = true
         };
@@ -116,6 +119,33 @@ internal sealed class TrayApplication : IDisposable
 
         _notifyIcon.ContextMenuStrip = contextMenu;
         _notifyIcon.DoubleClick += (_, _) => ShowMainForm();
+
+        // Subscribe to Windows volume changes to update the tray icon indicator
+        try
+        {
+            var audio = _host?.Services.GetService<IAudioController>();
+            if (audio != null)
+            {
+                audio.VolumeChanged += (s, e) =>
+                {
+                    try
+                    {
+                        var newIcon = TrayIconHelper.CreateSpeakerIcon(e.VolumePercent, e.IsMuted);
+                        var old = _notifyIcon?.Icon;
+                        _notifyIcon!.Icon = newIcon;
+                        old?.Dispose();
+                    }
+                    catch
+                    {
+                        // don't let icon update failures crash the app
+                    }
+                };
+            }
+        }
+        catch
+        {
+            // best-effort only
+        }
     }
 
     private void ShowMainForm()
@@ -193,9 +223,9 @@ internal static class TrayIconHelper
     /// then falls back to a programmatically drawn speaker glyph.
     /// </summary>
     [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-    internal static Icon CreateSpeakerIcon()
+    internal static Icon CreateSpeakerIcon(float indicatorPercent = 50f, bool muted = false)
     {
-        return TrayIconRenderer.Create();
+        return TrayIconRenderer.Create(16, indicatorPercent, muted);
     }
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]

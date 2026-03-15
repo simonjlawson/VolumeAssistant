@@ -25,6 +25,7 @@ public sealed class VolumeSyncCoordinator
     private float _lastWindowsVolumePercent;
     private CambridgeAudioSyncer? _cambridgeSyncer;
     private Delegate? _powerModeHandler;
+    private Delegate? _sessionEndingHandler;
     private MediaKeyListener? _mediaKeyListener;
 
     // Internal test seam: allow tests to set or get the syncer instance directly.
@@ -83,6 +84,15 @@ public sealed class VolumeSyncCoordinator
                 var handlerMethod = typeof(VolumeSyncCoordinator).GetMethod("OnPowerModeChangedInternal", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
                 _powerModeHandler = Delegate.CreateDelegate(powerEvent.EventHandlerType!, this, handlerMethod);
                 powerEvent.AddEventHandler(null, _powerModeHandler);
+            }
+            // Also subscribe to session ending (logoff / shutdown) so we can attempt
+            // to power off the Cambridge Audio device when the system is shutting down.
+            var sessionEvent = Type.GetType("Microsoft.Win32.SystemEvents, Microsoft.Win32.SystemEvents")?.GetEvent("SessionEnding");
+            if (sessionEvent != null)
+            {
+                var sessionHandlerMethod = typeof(VolumeSyncCoordinator).GetMethod("OnSessionEndingInternal", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+                _sessionEndingHandler = Delegate.CreateDelegate(sessionEvent.EventHandlerType!, this, sessionHandlerMethod);
+                sessionEvent.AddEventHandler(null, _sessionEndingHandler);
             }
         }
 
@@ -208,6 +218,12 @@ public sealed class VolumeSyncCoordinator
                 var powerEvent = Type.GetType("Microsoft.Win32.SystemEvents, Microsoft.Win32.SystemEvents")?.GetEvent("PowerModeChanged");
                 powerEvent?.RemoveEventHandler(null, _powerModeHandler);
                 _powerModeHandler = null;
+            }
+            if (_sessionEndingHandler != null)
+            {
+                var sessionEvent = Type.GetType("Microsoft.Win32.SystemEvents, Microsoft.Win32.SystemEvents")?.GetEvent("SessionEnding");
+                sessionEvent?.RemoveEventHandler(null, _sessionEndingHandler);
+                _sessionEndingHandler = null;
             }
 
             if (_cambridgeOptions.ClosePower)
@@ -352,6 +368,35 @@ public sealed class VolumeSyncCoordinator
                 }
             });
         }
+    }
+
+    internal void OnSessionEndingInternal(object? sender, EventArgs e)
+    {
+        // SessionEnding occurs on logoff or shutdown. Attempt to power off the
+        // Cambridge Audio device if configured. Use the same pattern as the
+        // power mode handler to avoid a hard dependency on Microsoft.Win32 types.
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                if (_cambridgeAudio != null && _cambridgeOptions.ClosePower)
+                {
+                    try
+                    {
+                        await _cambridgeAudio.PowerOffAsync().ConfigureAwait(false);
+                        _logger.LogInformation("Cambridge Audio powered off (Session ending, ClosePower enabled).");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to power off Cambridge Audio device on session end.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error handling session end event.");
+            }
+        });
     }
 
     internal void OnCambridgeAudioStateChanged(object? sender, CambridgeAudioStateChangedEventArgs e)

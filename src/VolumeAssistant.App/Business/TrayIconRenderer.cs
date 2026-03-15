@@ -16,7 +16,7 @@ internal static class TrayIconRenderer
     /// Creates an <see cref="Icon"/> containing a white outline volume dial on a
     /// transparent background.  The native GDI handle is released before returning.
     /// </summary>
-    internal static Icon Create(int size = 16)
+    internal static Icon Create(int size = 16, float indicatorPercent = 50f, bool muted = false)
     {
         using var bmp = new Bitmap(size, size, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
         using (var g = Graphics.FromImage(bmp))
@@ -36,13 +36,30 @@ internal static class TrayIconRenderer
             // Volume-knob arc: 135° start, 270° sweep — leaves a gap at the bottom
             g.DrawArc(pen, margin, margin, dim, dim, 135f, 270f);
 
-            // Indicator: short line from centre pointing to 12 o'clock (mid-volume)
+            // Indicator: short line from centre. The indicatorPercent parameter controls
+            // the position along the knob arc (0..100). 50 is the middle (12 o'clock).
             float indicatorLen = r * 0.52f;
-            float angleRad = -MathF.PI / 2f; // −90° = straight up
-            g.DrawLine(pen,
-                cx, cy,
-                cx + indicatorLen * MathF.Cos(angleRad),
-                cy + indicatorLen * MathF.Sin(angleRad));
+            // Clamp percent and map to an angle. The knob arc spans 270°; center (50%) -> -90°
+            var p = Math.Clamp(indicatorPercent, 0f, 100f);
+            // Map 0..100 -> angle range centered at -PI/2 spanning 270° (3*PI/2)
+            float angleRad = -MathF.PI / 2f + ((p - 50f) / 100f) * (3f * MathF.PI / 2f);
+            // If muted, draw the indicator with a dimmer colour so it remains visible
+            // but indicates the muted state.
+            if (muted)
+            {
+                using var mutedPen = new Pen(Color.FromArgb(180, Color.LightGray), penWidth * 0.9f) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round };
+                g.DrawLine(mutedPen,
+                    cx, cy,
+                    cx + indicatorLen * MathF.Cos(angleRad),
+                    cy + indicatorLen * MathF.Sin(angleRad));
+            }
+            else
+            {
+                g.DrawLine(pen,
+                    cx, cy,
+                    cx + indicatorLen * MathF.Cos(angleRad),
+                    cy + indicatorLen * MathF.Sin(angleRad));
+            }
         }
 
         var hIcon = bmp.GetHicon();
