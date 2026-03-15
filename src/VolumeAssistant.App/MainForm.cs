@@ -379,28 +379,36 @@ internal sealed class MainForm : Form
         var tabs = new TabControl
         {
             Dock = DockStyle.Fill,
-            Margin = new Padding(16),
-            //BackColor = Theme.Background,
-            //ForeColor = Theme.Foreground,
-            Font = Theme.DefaultFont
         };
 
         tabs.TabPages.Add(BuildConnectionTab());
         tabs.TabPages.Add(BuildConfigurationTab(app));
         tabs.TabPages.Add(BuildLogsTab());
 
-        var statusBar = new StatusStrip { BackColor = Theme.StatusBar };
-        statusBar.Items.Add(new ToolStripStatusLabel("Running") { ForeColor = Color.FromArgb(170, 170, 170) });
+        // Wrap tabs in a Panel (no border) so the whole tab area is grouped without a visible border
+        var group = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Padding = new Padding(8),
+        };
+        group.Controls.Add(tabs);
 
-        Controls.Add(tabs);
+        var statusBar = new StatusStrip();
+        statusBar.Items.Add(new ToolStripStatusLabel("Running") { ForeColor = Theme.MutedForeground });
+
+        Controls.Add(group);
         Controls.Add(statusBar);
+
+        // Apply theme to the entire control tree and style non-Control strips
+        Theme.ApplyToTree(this);
+        Theme.StyleToolStrip(statusBar);
     }
 
     private TabPage BuildConnectionTab()
     {
-        var page = new TabPage("Connection") { BackColor = Theme.Background, ForeColor = Theme.Foreground };
+        var page = new TabPage("Connection");
 
-        var panel = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Theme.Background };
+        var panel = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
 
         int y = 16;
 
@@ -413,7 +421,6 @@ internal sealed class MainForm : Form
                 Top = y,
                 AutoSize = true,
                 Font = Theme.HeaderFont,
-                ForeColor = Theme.Foreground,
             });
             y += 26;
         }
@@ -427,7 +434,6 @@ internal sealed class MainForm : Form
                 Top = y,
                 Width = 160,
                 AutoSize = false,
-                ForeColor = Color.FromArgb(200, 200, 200)
             };
             var val = new Label
             {
@@ -436,7 +442,6 @@ internal sealed class MainForm : Form
                 Top = y,
                 Width = 500,
                 AutoSize = false,
-                ForeColor = Theme.Foreground
             };
             panel.Controls.Add(lbl);
             panel.Controls.Add(val);
@@ -459,17 +464,13 @@ internal sealed class MainForm : Form
             Top = y + 4,
             Width = 90,
             Height = 28,
-            BackColor = Theme.Accent,
-            ForeColor = Color.White,
-            FlatStyle = FlatStyle.Flat
         };
-        _caConnectButton.FlatAppearance.BorderColor = Theme.AccentBorder;
         _caConnectButton.Click += CaConnectButton_Click;
         panel.Controls.Add(_caConnectButton);
         y += 40;
 
         // Separator
-        panel.Controls.Add(new Label { Left = 16, Top = y, Width = 700, Height = 1, BackColor = Theme.PanelBorder });
+        panel.Controls.Add(new Label { Left = 16, Top = y, Width = 700, Height = 1 });
         y += 16;
 
         // ── Windows Audio section ──
@@ -483,9 +484,9 @@ internal sealed class MainForm : Form
 
     private TabPage BuildConfigurationTab(TrayApplication app)
     {
-        var page = new TabPage("Configuration") { BackColor = Theme.Background, ForeColor = Theme.Foreground };
+        var page = new TabPage("Configuration");
 
-        var panel = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Theme.Background };
+        var panel = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
 
         int y = 16;
 
@@ -496,7 +497,6 @@ internal sealed class MainForm : Form
             Top = y,
             AutoSize = true,
             Font = Theme.HeaderFont,
-            ForeColor = Theme.Foreground,
         });
         y += 30;
 
@@ -509,32 +509,29 @@ internal sealed class MainForm : Form
                 Top = y + 2,
                 Width = 220,
                 AutoSize = false,
-                ForeColor = Color.FromArgb(200, 200, 200)
             };
             control.Left = 240;
             control.Top = y;
             control.Width = Math.Max(control.Width, 300);
-            control.BackColor = Theme.BackgroundAlt;
-            control.ForeColor = Theme.Foreground;
             panel.Controls.Add(label);
             panel.Controls.Add(control);
             y += 26;
             return (label, control);
         }
 
-        _enableChk = new CheckBox { ForeColor = Theme.Foreground, Width = 20 };
+        _enableChk = new CheckBox { Width = 20 };
         _hostTb = new TextBox();
         _portTb = new TextBox();
         _zoneTb = new TextBox();
         _startSourceTb = new TextBox();
         _startVolumeTb = new TextBox();
         _startOutputTb = new TextBox();
-        _startPowerChk = new CheckBox { ForeColor = Theme.Foreground, Width = 20 };
-        _closePowerChk = new CheckBox { ForeColor = Theme.Foreground, Width = 20 };
-        _relativeVolumeChk = new CheckBox { ForeColor = Theme.Foreground, Width = 20 };
+        _startPowerChk = new CheckBox { Width = 20 };
+        _closePowerChk = new CheckBox { Width = 20 };
+        _relativeVolumeChk = new CheckBox { Width = 20 };
         _maxVolumeTb = new TextBox();
-        _mediaKeysChk = new CheckBox { ForeColor = Theme.Foreground, Width = 20 };
-        _sourceSwitchingChk = new CheckBox { ForeColor = Theme.Foreground, Width = 20 };
+        _mediaKeysChk = new CheckBox { Width = 20 };
+        _sourceSwitchingChk = new CheckBox { Width = 20 };
         _sourceNamesTb = new TextBox();
 
         AddConfigRow("Enable", _enableChk);
@@ -559,7 +556,6 @@ internal sealed class MainForm : Form
             Top = y,
             Width = 700,
             Height = 1,
-            BackColor = Theme.PanelBorder
         });
         y += 12;
 
@@ -570,8 +566,6 @@ internal sealed class MainForm : Form
             Left = 16,
             Top = y,
             AutoSize = true,
-            ForeColor = Theme.Foreground,
-            BackColor = Theme.Background,
         };
         _runAtStartupChk.CheckedChanged += (_, _) =>
         {
@@ -604,9 +598,6 @@ internal sealed class MainForm : Form
             Top = y,
             Width = 70,
             Height = 26,
-            BackColor = Theme.ControlBackground,
-            ForeColor = Theme.Foreground,
-            FlatStyle = FlatStyle.Flat
         };
         reloadBtn.Click += ReloadConfig_Click;
         panel.Controls.Add(reloadBtn);
@@ -618,11 +609,7 @@ internal sealed class MainForm : Form
             Top = y,
             Width = 70,
             Height = 26,
-            BackColor = Theme.Accent,
-            ForeColor = Color.White,
-            FlatStyle = FlatStyle.Flat
         };
-        saveBtn.FlatAppearance.BorderColor = Theme.AccentBorder;
         saveBtn.Click += SaveConfig_Click;
         panel.Controls.Add(saveBtn);
 
@@ -636,7 +623,6 @@ internal sealed class MainForm : Form
             Top = y,
             AutoSize = true,
             Font = Theme.HeaderFont,
-            ForeColor = Theme.Foreground,
         });
         y += 22;
 
@@ -647,7 +633,6 @@ internal sealed class MainForm : Form
             Width = 700,
             Height = 40,
             AutoSize = false,
-            ForeColor = Color.FromArgb(170, 170, 170)
         };
         panel.Controls.Add(_appSettingsPathLabel);
 
@@ -657,13 +642,11 @@ internal sealed class MainForm : Form
 
     private TabPage BuildLogsTab()
     {
-        var page = new TabPage("Logs") { BackColor = Theme.Background, ForeColor = Theme.Foreground };
+        var page = new TabPage("Logs");
 
         _logListBox = new ListBox
         {
             Dock = DockStyle.Fill,
-            BackColor = Theme.LogBackground,
-            ForeColor = Theme.Foreground,
             Font = new Font("Consolas", 9),
             BorderStyle = BorderStyle.FixedSingle,
             HorizontalScrollbar = true,
@@ -678,9 +661,6 @@ internal sealed class MainForm : Form
             Text = "Clear Logs",
             Dock = DockStyle.Bottom,
             Height = 30,
-            BackColor = Theme.ControlBackground,
-            ForeColor = Theme.Foreground,
-            FlatStyle = FlatStyle.Flat
         };
         clearBtn.Click += (_, _) =>
         {

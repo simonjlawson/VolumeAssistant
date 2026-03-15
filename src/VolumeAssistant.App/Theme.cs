@@ -17,6 +17,8 @@ internal static class Theme
     public static readonly Color StatusBar = Color.FromArgb(15, 18, 22);
     public static readonly Color ControlBackground = Color.FromArgb(36, 42, 50);
     public static readonly Color LogBackground = Color.FromArgb(10, 12, 14);
+    public static readonly Color SecondaryForeground = Color.FromArgb(180, 180, 180);
+    public static readonly Color MutedForeground = Color.FromArgb(170, 170, 170);
 
     // Fonts
     public static readonly Font DefaultFont = new Font("Segoe UI", 9F, FontStyle.Regular);
@@ -91,5 +93,30 @@ internal static class Theme
         lb.BackColor = LogBackground;
         lb.ForeColor = Foreground;
         lb.Font = new Font("Consolas", 9F);
+    }
+
+    // Apply theme to a control tree (recursively)
+    public static void ApplyToTree(Control root)
+    {
+        if (root is null) return;
+        ApplyToControl(root);
+        foreach (Control child in root.Controls)
+            ApplyToTree(child);
+    }
+
+    // Style ToolStrip/StatusStrip items which are not Controls
+    public static void StyleToolStrip(ToolStrip ts)
+    {
+        if (ts is null) return;
+        try
+        {
+            ts.BackColor = StatusBar;
+            foreach (ToolStripItem item in ts.Items)
+            {
+                item.ForeColor = MutedForeground;
+                if (item is ToolStripLabel lbl) lbl.Font = DefaultFont;
+            }
+        }
+        catch { }
     }
 }
