@@ -16,18 +16,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Makaretu.Dns" Version="2.0.1" />
-    <PackageReference Include="Makaretu.Dns.Multicast" Version="0.27.0" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.0" />
     <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.0" />
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.0" />
-    <PackageReference Include="NAudio" Version="2.2.1" />
-      <PackageReference Include="Microsoft.Win32.SystemEvents" Version="7.0.0" />
   </ItemGroup>
 	
   <ItemGroup>
     <None Include="Assets\volume.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VolumeAssistant.Core\VolumeAssistant.Core.csproj" />
   </ItemGroup>
 
 </Project>

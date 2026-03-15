@@ -1,31 +1,43 @@
-# Creates a simple speaker icon at src\VolumeAssistant.Service\Assets\volume.ico
+# Creates a white-outline speaker "broadcasting" icon at src\VolumeAssistant.App\Assets\volume.ico
 # Run from repository root in PowerShell: .\scripts\Create-VolumeIcon.ps1
-$iconPath = 'src\VolumeAssistant.Service\Assets\volume.ico'
+$iconPath = 'src\VolumeAssistant.App\Assets\volume.ico'
 New-Item -ItemType Directory -Path (Split-Path $iconPath) -Force | Out-Null
 
 Add-Type -AssemblyName System.Drawing
+
 $size = 64
-$bmp = New-Object System.Drawing.Bitmap $size,$size
+$bmp = New-Object System.Drawing.Bitmap $size,$size, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
 $g = [System.Drawing.Graphics]::FromImage($bmp)
 $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
 $g.Clear([System.Drawing.Color]::FromArgb(0, 0, 0, 0))
 
-# Draw speaker body
-$brush = [System.Drawing.Brushes]::Black
-$g.FillRectangle($brush, 8,20,18,24)
+# White pen for outline
+$whitePen = New-Object System.Drawing.Pen([System.Drawing.Color]::White, 4)
+$whitePen.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
+
+# Draw speaker body as an outlined polygon (trapezoid + rectangle)
+# Rectangle (speaker base)
+$g.DrawRectangle($whitePen, 8, 20, 18, 24)
+
+# Trapezoid (speaker cone)
 $points = [System.Drawing.Point[]]@(
     [System.Drawing.Point]::new(26,20),
     [System.Drawing.Point]::new(44,12),
     [System.Drawing.Point]::new(44,52),
     [System.Drawing.Point]::new(26,44)
 )
-$g.FillPolygon($brush, $points)
+$g.DrawPolygon($whitePen, $points)
 
-# Draw sound waves
-$pen = New-Object System.Drawing.Pen([System.Drawing.Color]::Black, 3)
-$g.DrawArc($pen, 40, 16, 18, 32, -60, 120)
-$pen.Width = 2
-$g.DrawArc($pen, 44, 12, 26, 40, -60, 120)
+# Draw broadcasting arcs (three arcs with decreasing thickness)
+$arcPen1 = New-Object System.Drawing.Pen([System.Drawing.Color]::White, 4)
+$arcPen1.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
+$arcPen2 = New-Object System.Drawing.Pen([System.Drawing.Color]::White, 3)
+$arcPen3 = New-Object System.Drawing.Pen([System.Drawing.Color]::White, 2)
+
+# Outer arcs (approximating sound waves)
+$g.DrawArc($arcPen1, 40, 12, 18, 40, -60, 120)
+$g.DrawArc($arcPen2, 44, 8, 28, 48, -60, 120)
+$g.DrawArc($arcPen3, 50, 4, 36, 56, -60, 120)
 
 # Save as PNG bytes
 $pngMs = New-Object System.IO.MemoryStream

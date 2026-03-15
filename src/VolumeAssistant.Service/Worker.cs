@@ -13,6 +13,9 @@ public sealed class Worker : BackgroundService
 {
     private readonly VolumeSyncCoordinator _coordinator;
     private readonly ILogger<Worker> _logger;
+    // Internal test seam: expose the coordinator so tests can inject a
+    // CambridgeAudioSyncer directly into the coordinator.
+    internal VolumeSyncCoordinator Coordinator => _coordinator;
 
     public Worker(
         IAudioController audioController,
@@ -35,6 +38,72 @@ public sealed class Worker : BackgroundService
             cambridgeAudio,
             cambridgeOptions?.Value ?? new CambridgeAudioOptions(),
             matterOptions?.Value ?? new MatterOptions());
+    }
+
+    private float WindowsToCambridgeVolume(float windowsPercent)
+    {
+        return _coordinator.WindowsToCambridgeVolume(windowsPercent);
+    }
+
+    private float CambridgeToWindowsVolume(float cambridgePercent)
+    {
+        return _coordinator.CambridgeToWindowsVolume(cambridgePercent);
+    }
+
+    private void OnPowerModeChangedInternal(object? sender, EventArgs e)
+    {
+        _coordinator.OnPowerModeChangedInternal(sender, e);
+    }
+
+    // Backwards-compatibility wrappers for tests that reflect on Worker
+    // to exercise media key handlers. These forward to the internal
+    // VolumeSyncCoordinator methods via reflection.
+    private void OnMediaKeySourceSwitchRequested(object? sender, EventArgs e)
+    {
+        var m = typeof(VolumeSyncCoordinator).GetMethod(
+            "OnMediaKeySourceSwitchRequested",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        m?.Invoke(_coordinator, new object?[] { sender, e });
+    }
+
+    private void OnMediaKeyNextTrack(object? sender, EventArgs e)
+    {
+        var m = typeof(VolumeSyncCoordinator).GetMethod(
+            "OnMediaKeyNextTrack",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        m?.Invoke(_coordinator, new object?[] { sender, e });
+    }
+
+    private void OnMediaKeyPlayPause(object? sender, EventArgs e)
+    {
+        var m = typeof(VolumeSyncCoordinator).GetMethod(
+            "OnMediaKeyPlayPause",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        m?.Invoke(_coordinator, new object?[] { sender, e });
+    }
+
+    private void OnMediaKeyPreviousTrack(object? sender, EventArgs e)
+    {
+        var m = typeof(VolumeSyncCoordinator).GetMethod(
+            "OnMediaKeyPreviousTrack",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        m?.Invoke(_coordinator, new object?[] { sender, e });
+    }
+
+    // Backwards-compatibility wrappers for other handlers used in tests
+    private void OnWindowsVolumeChanged(object? sender, VolumeChangedEventArgs e)
+    {
+        _coordinator.OnWindowsVolumeChanged(sender, e);
+    }
+
+    private void OnCambridgeAudioStateChanged(object? sender, CambridgeAudioStateChangedEventArgs e)
+    {
+        _coordinator.OnCambridgeAudioStateChanged(sender, e);
+    }
+
+    private void OnMatterDeviceStateChanged(object? sender, (byte Level, bool IsOn) state)
+    {
+        _coordinator.OnMatterDeviceStateChanged(sender, state);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

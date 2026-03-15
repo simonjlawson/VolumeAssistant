@@ -2,6 +2,7 @@
   <Folder Name="/scripts/">
     <File Path="scripts/Configure-AppSettings.ps1" />
     <File Path="scripts/Install-VolumeAssistant.ps1" />
+    <File Path="scripts/Install-VolumeAssistantApp.ps1" />
     <File Path="scripts/Start-VolumeAssistant.ps1" />
     <File Path="scripts/Stop-VolumeAssistant.ps1" />
   </Folder>
@@ -9,7 +10,9 @@
     <File Path="README.md" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/VolumeAssistant.Core/VolumeAssistant.Core.csproj" />
     <Project Path="src/VolumeAssistant.Service/VolumeAssistant.Service.csproj" />
+    <Project Path="src/VolumeAssistant.App/VolumeAssistant.App.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/VolumeAssistant.Tests/VolumeAssistant.Tests.csproj" />

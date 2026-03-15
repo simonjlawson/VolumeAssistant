@@ -148,10 +148,10 @@ namespace VolumeAssistant.Tests
                 Options.Create(options));
 
             // Initialise the syncer (normally created in ExecuteAsync) so that
-            // OnWindowsVolumeChanged can enqueue volume changes.
+            // OnWindowsVolumeChanged can enqueue volume changes. Use the
+            // explicit internal test seam on Worker to inject the syncer.
             var syncer = new CambridgeAudioSyncer(cam, options, NullLogger<Worker>.Instance);
-            var syncerField = typeof(Worker).GetField("_cambridgeSyncer", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-            syncerField.SetValue(worker, syncer);
+            worker.Coordinator.CambridgeSyncer = syncer;
 
             var workerType = typeof(Worker);
             var onWindows = workerType.GetMethod("OnWindowsVolumeChanged", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;

@@ -10,7 +10,7 @@ using VolumeAssistant.Service.Matter.Clusters;
 
 namespace VolumeAssistant.Service;
 
-internal sealed class VolumeSyncCoordinator
+public sealed class VolumeSyncCoordinator
 {
     private readonly IAudioController _audioController;
     private readonly ICambridgeAudioClient? _cambridgeAudio;
@@ -26,6 +26,13 @@ internal sealed class VolumeSyncCoordinator
     private CambridgeAudioSyncer? _cambridgeSyncer;
     private Delegate? _powerModeHandler;
     private MediaKeyListener? _mediaKeyListener;
+
+    // Internal test seam: allow tests to set or get the syncer instance directly.
+    internal CambridgeAudioSyncer? CambridgeSyncer
+    {
+        get => _cambridgeSyncer;
+        set => _cambridgeSyncer = value;
+    }
 
     public VolumeSyncCoordinator(
         IAudioController audioController,
@@ -237,7 +244,7 @@ internal sealed class VolumeSyncCoordinator
         }
     }
 
-    private void OnWindowsVolumeChanged(object? sender, VolumeChangedEventArgs e)
+    internal void OnWindowsVolumeChanged(object? sender, VolumeChangedEventArgs e)
     {
         _logger.LogInformation(
             "Windows volume changed: {Volume:F1}%, Muted: {Muted}",
@@ -305,7 +312,7 @@ internal sealed class VolumeSyncCoordinator
         });
     }
 
-    private void OnMatterDeviceStateChanged(object? sender, (byte Level, bool IsOn) state)
+    internal void OnMatterDeviceStateChanged(object? sender, (byte Level, bool IsOn) state)
     {
         float volumePercent = LevelControlCluster.MatterLevelToVolumePercent(state.Level);
         bool muted = !state.IsOn;
@@ -347,7 +354,7 @@ internal sealed class VolumeSyncCoordinator
         }
     }
 
-    private void OnCambridgeAudioStateChanged(object? sender, CambridgeAudioStateChangedEventArgs e)
+    internal void OnCambridgeAudioStateChanged(object? sender, CambridgeAudioStateChangedEventArgs e)
     {
         var state = e.State;
 
@@ -508,7 +515,7 @@ internal sealed class VolumeSyncCoordinator
         }
     }
 
-    private void OnPowerModeChangedInternal(object? sender, EventArgs e)
+    internal void OnPowerModeChangedInternal(object? sender, EventArgs e)
     {
         _ = Task.Run(async () =>
         {
@@ -550,7 +557,7 @@ internal sealed class VolumeSyncCoordinator
         });
     }
 
-    private float WindowsToCambridgeVolume(float windowsPercent)
+    internal float WindowsToCambridgeVolume(float windowsPercent)
     {
         if (_cambridgeOptions.MaxVolume.HasValue)
         {
@@ -559,7 +566,7 @@ internal sealed class VolumeSyncCoordinator
         return windowsPercent;
     }
 
-    private float CambridgeToWindowsVolume(float cambridgePercent)
+    internal float CambridgeToWindowsVolume(float cambridgePercent)
     {
         if (_cambridgeOptions.MaxVolume.HasValue)
         {

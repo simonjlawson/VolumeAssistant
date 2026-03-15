@@ -323,28 +323,52 @@ public sealed class CambridgeAudioClient : ICambridgeAudioClient
     /// <inheritdoc />
     public async Task PlayPauseAsync(CancellationToken cancellationToken = default)
     {
-        await RequestAsync(
-            EndpointPlayControl,
-            new Dictionary<string, object?> { ["match"] = "none", ["zone"] = _options.Zone, ["action"] = "toggle" },
-            cancellationToken);
+        try
+        {
+            await RequestAsync(
+                EndpointPlayControl,
+                new Dictionary<string, object?> { ["match"] = "none", ["zone"] = _options.Zone, ["action"] = "toggle" },
+                cancellationToken);
+        }
+        catch (CambridgeAudioException ex) when (ex.Message.Contains("Device returned error 400"))
+        {
+            _logger.LogInformation("Audio Source unable to perform PlayPause");
+            return;
+        }
     }
 
     /// <inheritdoc />
     public async Task NextTrackAsync(CancellationToken cancellationToken = default)
     {
-        await RequestAsync(
-            EndpointPlayControl,
-            new Dictionary<string, object?> { ["match"] = "none", ["zone"] = _options.Zone, ["skip_track"] = 1 },
-            cancellationToken);
+        try
+        {
+            await RequestAsync(
+                EndpointPlayControl,
+                new Dictionary<string, object?> { ["match"] = "none", ["zone"] = _options.Zone, ["skip_track"] = 1 },
+                cancellationToken);
+        }
+        catch (CambridgeAudioException ex) when (ex.Message.Contains("Device returned error 400"))
+        {
+            _logger.LogInformation("Audio Source unable to perform NextTrack");
+            return;
+        }
     }
 
     /// <inheritdoc />
     public async Task PreviousTrackAsync(CancellationToken cancellationToken = default)
     {
-        await RequestAsync(
-            EndpointPlayControl,
-            new Dictionary<string, object?> { ["match"] = "none", ["zone"] = _options.Zone, ["skip_track"] = -1 },
-            cancellationToken);
+        try
+        {
+            await RequestAsync(
+                EndpointPlayControl,
+                new Dictionary<string, object?> { ["match"] = "none", ["zone"] = _options.Zone, ["skip_track"] = -1 },
+                cancellationToken);
+        }
+        catch (CambridgeAudioException ex) when (ex.Message.Contains("Device returned error 400"))
+        {
+            _logger.LogInformation("Audio Source unable to perform PreviousTrack");
+            return;
+        }
     }
 
     // ────────────────────────────────────────────────────────────────────────────
