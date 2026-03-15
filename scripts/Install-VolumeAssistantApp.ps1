@@ -22,6 +22,9 @@ param(
     [bool]$SelfContained = $true,
     # Add a registry run key to start the tray app on Windows login
     [bool]$AddStartup = $false
+    ,
+    # Remove startup entries and shortcut instead of installing
+    [bool]$Uninstall = $false
 )
 
 function Ensure-Administrator {
@@ -36,14 +39,77 @@ function Write-Info([string]$text) { Write-Host $text -ForegroundColor Cyan }
 
 Ensure-Administrator
 
-$scriptRoot = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
-
 # Resolve project path
+# Use PSScriptRoot which reliably points to the directory containing the running script
+$scriptRoot = $PSScriptRoot
+
+# If uninstall was requested, remove startup entries and Start Menu shortcut and exit
+if ($Uninstall) {
+    Write-Info "Uninstall mode: removing startup entries for '$AppName'"
+
+    $regKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+    try {
+        $val = Get-ItemProperty -Path $regKey -Name $AppName -ErrorAction SilentlyContinue
+        if ($val -ne $null) {
+            Remove-ItemProperty -Path $regKey -Name $AppName -ErrorAction Stop
+            Write-Info "Removed machine startup registry entry: $AppName"
+        } else {
+            Write-Info "No machine startup registry entry found for: $AppName"
+        }
+    } catch {
+        Write-Warning "Failed to remove machine startup registry entry: $_"
+    }
+
+    # Also remove from current user run key if present
+    $regKeyCU = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+    try {
+        $val = Get-ItemProperty -Path $regKeyCU -Name $AppName -ErrorAction SilentlyContinue
+        if ($val -ne $null) {
+            Remove-ItemProperty -Path $regKeyCU -Name $AppName -ErrorAction Stop
+            Write-Info "Removed user startup registry entry: $AppName"
+        } else {
+            Write-Info "No user startup registry entry found for: $AppName"
+        }
+    } catch {
+        Write-Warning "Failed to remove user startup registry entry: $_"
+    }
+
+    # Remove Start Menu shortcut
+    $startMenuDir = Join-Path $env:ProgramData "Microsoft\Windows\Start Menu\Programs"
+    $shortcutPath = Join-Path $startMenuDir "$AppName.lnk"
+    try {
+        if (Test-Path $shortcutPath) {
+            Remove-Item -Path $shortcutPath -Force -ErrorAction Stop
+            Write-Info "Removed Start Menu shortcut: $shortcutPath"
+        } else {
+            Write-Info "No Start Menu shortcut found at: $shortcutPath"
+        }
+    } catch {
+        Write-Warning "Failed to remove Start Menu shortcut: $_"
+    }
+
+    Write-Info "Uninstall complete."
+    exit 0
+}
+
+# Build candidate project paths in order of preference:
+# 1) If ProjectPath is absolute, check it first
+# 2) Path relative to the script directory
+# 3) Path relative to the script parent (repo root)
+# 4) As a last resort, the raw ProjectPath (relative to current working directory)
 $candidates = @()
-$candidates += $ProjectPath
+try {
+    $isRooted = [System.IO.Path]::IsPathRooted($ProjectPath)
+} catch {
+    $isRooted = $false
+}
+if ($isRooted) { $candidates += $ProjectPath }
+$scriptRelative = Join-Path $scriptRoot $ProjectPath
+$candidates += $scriptRelative
 $repoRoot = Split-Path -Path $scriptRoot -Parent
 if ($repoRoot) { $candidates += Join-Path $repoRoot $ProjectPath }
-$candidates += Join-Path $scriptRoot $ProjectPath
+# Fallback to plain ProjectPath (relative to current working directory)
+$candidates += $ProjectPath
 
 $found = $null
 foreach ($cand in $candidates) {
@@ -52,6 +118,7 @@ foreach ($cand in $candidates) {
 
 if ($found) {
     $ProjectPath = $found
+    Write-Info "Resolved project path: $ProjectPath"
 } else {
     Write-Error "Project path '$ProjectPath' not found. Tried: $($candidates -join ', ')"
     exit 1
