@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 #[derive(Debug, Clone, Default)]
 pub struct CambridgeAudioStatus {
     pub connected: bool,
@@ -12,7 +14,8 @@ pub struct CambridgeAudioStatus {
 #[derive(Debug, Default)]
 pub struct AppState {
     pub cambridge: CambridgeAudioStatus,
-    pub log_entries: Vec<String>,
+    /// Ring buffer of log entries; capped at 1 000 messages.
+    pub log_entries: VecDeque<String>,
     pub windows_volume_percent: f32,
     pub windows_muted: bool,
 }
@@ -23,9 +26,10 @@ impl AppState {
     }
 
     pub fn add_log(&mut self, entry: String) {
-        self.log_entries.push(entry);
+        self.log_entries.push_back(entry);
         if self.log_entries.len() > 1000 {
-            self.log_entries.remove(0);
+            // pop_front is O(1) on VecDeque, unlike remove(0) on Vec
+            self.log_entries.pop_front();
         }
     }
 }

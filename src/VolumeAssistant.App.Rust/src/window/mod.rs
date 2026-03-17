@@ -26,6 +26,8 @@ const IDC_LOG_LIST: i32 = 1200;
 const IDC_BTN_CONNECT: i32 = 1300;
 const TIMER_REFRESH: usize = 1;
 
+// SAFETY: All globals below are written once during WM_CREATE (before any other
+// window message can arrive) and read only from the single Win32 message-loop thread.
 static mut WIN_AUDIO_PTR: *const Mutex<AudioController> = std::ptr::null();
 static mut WIN_STATE_PTR: *const Mutex<AppState> = std::ptr::null();
 static mut TAB_HWND: HWND = std::ptr::null_mut();
@@ -256,9 +258,9 @@ unsafe fn refresh_ui(_hwnd: HWND) {
     if !LOG_LIST_HWND.is_null() {
         let count = SendMessageW(LOG_LIST_HWND, LB_GETCOUNT, 0, 0) as usize;
         if count < log_entries.len() {
-            // Collect all wide strings first to ensure they remain valid during SendMessageW
-            let new_entries: Vec<Vec<u16>> = log_entries[count..]
-                .iter()
+            // Collect new entries into wide strings while holding no lock
+            let new_entries: Vec<Vec<u16>> = log_entries.iter()
+                .skip(count)
                 .map(|e| format!("{}\0", e).encode_utf16().collect())
                 .collect();
             for text in &new_entries {

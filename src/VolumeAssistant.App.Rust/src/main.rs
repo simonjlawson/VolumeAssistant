@@ -36,12 +36,12 @@ fn main() {
         });
     }
 
-    if config.matter.enabled {
+    if config.matter().enabled {
         let state_m = Arc::clone(&state);
         std::thread::spawn(move || {
             matter::server::run_server(state_m);
         });
-        let discriminator = config.matter.discriminator;
+        let discriminator = config.matter().discriminator;
         std::thread::spawn(move || {
             mdns::advertise(discriminator);
         });

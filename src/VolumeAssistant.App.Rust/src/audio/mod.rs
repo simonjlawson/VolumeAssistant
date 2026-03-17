@@ -119,6 +119,12 @@ pub struct AudioController {
     endpoint_volume: Option<*mut IAudioEndpointVolume>,
 }
 
+// SAFETY: IAudioEndpointVolume is a thread-safe COM interface (its reference-counted
+// vtable methods serialize concurrent callers internally).  The raw pointer stored here
+// is valid for the entire process lifetime (allocated once in `new` and released in
+// `Drop`).  The surrounding `Mutex<AudioController>` ensures at most one thread calls
+// into the COM interface at a time, satisfying COM apartment threading requirements for
+// MTA initialization (CoInitializeEx with COINIT_MULTITHREADED in main).
 unsafe impl Send for AudioController {}
 unsafe impl Sync for AudioController {}
 

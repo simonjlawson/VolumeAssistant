@@ -92,12 +92,20 @@ pub struct AppConfig2 {
     pub use_source_popup: bool,
 }
 
+/// Matches the `"VolumeAssistant": { "Matter": {...} }` nesting in appsettings.json.
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct VolumeAssistantSection {
+    #[serde(rename = "Matter", default)]
+    pub matter: MatterConfig,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct AppConfig {
     #[serde(rename = "CambridgeAudio", default)]
     pub cambridge_audio: CambridgeAudioConfig,
-    #[serde(rename = "Matter", default)]
-    pub matter: MatterConfig,
+    /// Matter config lives under the `VolumeAssistant` key in appsettings.json.
+    #[serde(rename = "VolumeAssistant", default)]
+    pub volume_assistant: VolumeAssistantSection,
     #[serde(rename = "App", default)]
     pub app: AppConfig2,
 }
@@ -113,6 +121,12 @@ fn default_passcode() -> u32 { 20202021 }
 fn default_true() -> bool { true }
 
 impl AppConfig {
+    /// Convenience accessor so callers can use `config.matter()` instead of
+    /// `config.volume_assistant.matter`.
+    pub fn matter(&self) -> &MatterConfig {
+        &self.volume_assistant.matter
+    }
+
     pub fn load() -> Self {
         if let Ok(exe_path) = std::env::current_exe() {
             if let Some(dir) = exe_path.parent() {

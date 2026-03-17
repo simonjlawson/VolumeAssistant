@@ -24,6 +24,8 @@ pub const WM_TRAYICON: u32 = WM_USER + 1;
 const IDM_OPEN: usize = 1001;
 const IDM_EXIT: usize = 1002;
 
+// SAFETY: All Win32 HWND and raw-pointer globals are accessed exclusively from the
+// single Win32 message-loop thread.  No other thread reads or writes these statics.
 pub static mut MAIN_WINDOW: HWND = std::ptr::null_mut();
 static mut AUDIO_PTR: *const Mutex<AudioController> = std::ptr::null();
 static mut STATE_PTR: *const Mutex<AppState> = std::ptr::null();

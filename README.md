@@ -8,6 +8,7 @@ A Windows service/Tray App that can expose the Windows master volume as a **Matt
 
 - **Windows Service** (`VolumeAssistant.Service`) – runs in the background without a UI, starts automatically with Windows, limited to volume handling, no key presses can be intercepted.
 - **System Tray App** (`VolumeAssistant.App`) – a lightweight **Native AOT** Forms app able to intercept media keys and Shift+SCRLK for source switching.
+- **System Tray App — Rust** (`VolumeAssistant.App.Rust`) – a **Rust** reimplementation of the tray app using the Win32 API directly, targeting the **smallest possible memory footprint** (~710 KB binary, no .NET or C++ runtime dependency). See [Rust App](#rust-system-tray-app) below.
 - **Real-time volume sync** – whenever the master volume changes in Windows, the change is immediately reported to all subscribed Matter controllers.
 - **Two-way control** – Matter controllers can set the volume (Level Control cluster) or mute it (On/Off cluster).
 - **mDNS advertisement** – the device is automatically discoverable via DNS-SD (`_matterc._udp` + `_matter._tcp`).
@@ -61,15 +62,17 @@ sc.exe start VolumeAssistant
 
 ## Architecture
 
-The solution is split into three projects sharing common code:
+The solution contains three .NET projects sharing common code, plus a Rust reimplementation:
 
 ```
-VolumeAssistant.Core     — Shared library: Audio, Cambridge Audio, Matter, VolumeSyncCoordinator
-VolumeAssistant.Service  — Windows Service (headless, starts automatically)
-VolumeAssistant.App      — Native AOT System Tray App (Windows Forms, no .NET runtime required when published)
+VolumeAssistant.Core          — Shared library: Audio, Cambridge Audio, Matter, VolumeSyncCoordinator
+VolumeAssistant.Service       — Windows Service (headless, starts automatically)
+VolumeAssistant.App           — Native AOT System Tray App (Windows Forms, no .NET runtime required when published)
+VolumeAssistant.App.Rust      — Rust System Tray App (Win32 API, smallest memory footprint, ~710 KB binary)
 ```
 
 Both `VolumeAssistant.Service` and `VolumeAssistant.App` reference `VolumeAssistant.Core` for all volume-sync logic.
+`VolumeAssistant.App.Rust` reimplements all logic directly in Rust without any .NET dependencies.
 
 ## Compatibility
 
@@ -119,6 +122,61 @@ Double-click the speaker tray icon (or right-click → Open) to open the window.
 
 > **Note:** The tray app is built with Windows Forms and published as a Native AOT executable.
 > All forms are created programmatically (no WPF/XAML required at runtime).
+
+## Rust System Tray App
+
+`VolumeAssistant.App.Rust` is a full reimplementation of the tray app in **Rust** (`src/VolumeAssistant.App.Rust/`), designed for the smallest possible memory footprint.
+
+### Why Rust?
+- **No runtime** – the binary links directly against Windows system DLLs only; no .NET CLR, no C++ runtime, no garbage collector.
+- **Tiny binary** – release build is ~710 KB (LTO + size optimization), compared to tens of megabytes for a .NET self-contained executable.
+- **Minimal RAM** – Rust's zero-cost abstractions and direct Win32 API usage means the process typically uses 2–5 MB of RAM at idle.
+- **All features** – same Cambridge Audio WebSocket client, WASAPI audio control, Matter UDP server, and mDNS advertisement as the .NET app.
+
+### Building the Rust App
+
+Requirements:
+- [Rust toolchain](https://rustup.rs/) with the `x86_64-pc-windows-gnu` target
+- MinGW-w64 cross-compiler (`x86_64-w64-mingw32-gcc`) if building from Linux
+
+```bash
+# Install target (one-time)
+rustup target add x86_64-pc-windows-gnu
+
+# Debug build
+cargo build --target x86_64-pc-windows-gnu --manifest-path src/VolumeAssistant.App.Rust/Cargo.toml
+
+# Release build (smallest binary)
+cargo build --release --target x86_64-pc-windows-gnu --manifest-path src/VolumeAssistant.App.Rust/Cargo.toml
+```
+
+The output binary is `VolumeAssistantApp.exe` in the `target/x86_64-pc-windows-gnu/release/` directory.
+
+### Configuration
+
+The Rust app reads `appsettings.json` from the same directory as the executable (same format as the .NET app):
+
+```json
+{
+  "VolumeAssistant": {
+    "Matter": { "Enabled": false, "Discriminator": 3840 }
+  },
+  "CambridgeAudio": {
+    "Enable": true,
+    "Host": "192.168.1.47",
+    "Port": 80,
+    "Zone": "ZONE1"
+  },
+  "App": { "UseSourcePopup": true }
+}
+```
+
+### Memory Footprint Comparison
+
+| App | Binary Size | RAM (idle) | Runtime required |
+|-----|------------|-----------|-----------------|
+| `VolumeAssistant.App` (Native AOT) | ~5–15 MB | ~30–80 MB | None |
+| `VolumeAssistant.App.Rust` | ~710 KB | ~2–5 MB | None |
 
 ### Scripts
 
