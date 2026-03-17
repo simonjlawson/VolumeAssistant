@@ -102,16 +102,18 @@ fn encode_element(buf: &mut Vec<u8>, elem: &TlvElement) {
             buf.push(0x18);
         }
         TlvType::Str(s) => {
+            let len = s.len().min(255);
             buf.push(tc | 0x0C);
             push_tag(buf, &elem.tag);
-            buf.push(s.len() as u8);
-            buf.extend_from_slice(s);
+            buf.push(len as u8);
+            buf.extend_from_slice(&s[..len]);
         }
         TlvType::ByteStr(s) => {
+            let len = s.len().min(255);
             buf.push(tc | 0x10);
             push_tag(buf, &elem.tag);
-            buf.push(s.len() as u8);
-            buf.extend_from_slice(s);
+            buf.push(len as u8);
+            buf.extend_from_slice(&s[..len]);
         }
         _ => {}
     }

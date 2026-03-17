@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use windows_sys::Win32::Foundation::{RECT, BOOL};
+use windows_sys::Win32::Foundation::RECT;
 use windows_sys::Win32::Graphics::Gdi::{
     CreateCompatibleDC, CreateBitmap, SelectObject, DeleteObject, DeleteDC,
     SetPixel, CreateCompatibleBitmap, GetDC, ReleaseDC,
@@ -21,11 +21,11 @@ pub fn create_volume_icon(volume_percent: f32, muted: bool) -> HICON {
     unsafe {
         let mask_bits: Vec<u8> = vec![0u8; (SIZE * SIZE / 8) as usize];
 
+        // Use the screen DC to create a compatible color bitmap (not monochrome)
         let dc = GetDC(std::ptr::null_mut());
+        let hbm_color = CreateCompatibleBitmap(dc, SIZE, SIZE);
         let mem_dc = CreateCompatibleDC(dc);
         ReleaseDC(std::ptr::null_mut(), dc);
-
-        let hbm_color = CreateCompatibleBitmap(mem_dc, SIZE, SIZE);
         let old_bm = SelectObject(mem_dc, hbm_color);
 
         let black_brush = CreateSolidBrush(rgb(0, 0, 0));

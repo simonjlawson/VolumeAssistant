@@ -1,7 +1,7 @@
 #![allow(non_snake_case, dead_code)]
 
 use std::sync::Mutex;
-use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM, HMODULE, RECT};
+use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM, HMODULE};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, GetDlgItem, KillTimer, RegisterClassW,
     SendMessageW, SetTimer, SetWindowTextW, ShowWindow, WNDCLASSW,
@@ -256,8 +256,12 @@ unsafe fn refresh_ui(_hwnd: HWND) {
     if !LOG_LIST_HWND.is_null() {
         let count = SendMessageW(LOG_LIST_HWND, LB_GETCOUNT, 0, 0) as usize;
         if count < log_entries.len() {
-            for entry in &log_entries[count..] {
-                let text: Vec<u16> = format!("{}\0", entry).encode_utf16().collect();
+            // Collect all wide strings first to ensure they remain valid during SendMessageW
+            let new_entries: Vec<Vec<u16>> = log_entries[count..]
+                .iter()
+                .map(|e| format!("{}\0", e).encode_utf16().collect())
+                .collect();
+            for text in &new_entries {
                 SendMessageW(LOG_LIST_HWND, LB_ADDSTRING, 0, text.as_ptr() as LPARAM);
             }
             let new_count = SendMessageW(LOG_LIST_HWND, LB_GETCOUNT, 0, 0);

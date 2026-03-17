@@ -8,8 +8,8 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     RegisterClassW, SetForegroundWindow, ShowWindow, TrackPopupMenu,
     TranslateMessage, WNDCLASSW,
     HWND_MESSAGE, MF_SEPARATOR, MF_STRING,
-    SW_SHOW, SW_HIDE, TPM_BOTTOMALIGN, TPM_RIGHTBUTTON, TPM_RIGHTALIGN,
-    WM_CLOSE, WM_COMMAND, WM_LBUTTONDBLCLK, WM_RBUTTONUP, WM_USER,
+    SW_SHOW, TPM_BOTTOMALIGN, TPM_RIGHTBUTTON, TPM_RIGHTALIGN,
+    WM_COMMAND, WM_LBUTTONDBLCLK, WM_RBUTTONUP, WM_USER,
 };
 use windows_sys::Win32::UI::Shell::{
     Shell_NotifyIconW, NOTIFYICONDATAW, NOTIFYICONDATAW_0,
@@ -33,6 +33,9 @@ pub fn run_tray(
     state: Arc<Mutex<AppState>>,
 ) {
     unsafe {
+        // SAFETY: The Arc is intentionally leaked here so the raw pointer remains valid
+        // for the entire lifetime of the application. Win32 WndProc callbacks require
+        // static-lifetime pointers; the memory is reclaimed on process exit.
         let audio_leaked = Arc::into_raw(audio);
         let state_leaked = Arc::into_raw(state);
         AUDIO_PTR = audio_leaked;
@@ -189,7 +192,7 @@ unsafe fn show_context_menu(hwnd: HWND) {
     DestroyMenu(hmenu);
 }
 
-unsafe fn show_main_window(tray_hwnd: HWND) {
+unsafe fn show_main_window(_tray_hwnd: HWND) {
     if !MAIN_WINDOW.is_null() {
         ShowWindow(MAIN_WINDOW, SW_SHOW);
         SetForegroundWindow(MAIN_WINDOW);

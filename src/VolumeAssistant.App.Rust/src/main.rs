@@ -1,5 +1,5 @@
 #![windows_subsystem = "windows"]
-#![allow(non_snake_case, dead_code, unused_variables, unused_imports)]
+#![allow(non_snake_case)]
 
 mod config;
 mod coordinator;
@@ -13,9 +13,6 @@ mod icon;
 
 use std::sync::{Arc, Mutex};
 use windows_sys::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
-use windows_sys::Win32::UI::WindowsAndMessaging::{
-    GetMessageW, TranslateMessage, DispatchMessageW, MSG,
-};
 
 fn main() {
     unsafe {

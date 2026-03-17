@@ -32,7 +32,7 @@ pub fn advertise(discriminator: u16) {
         let _ = daemon.register(info);
     }
 
-    loop {
-        std::thread::sleep(std::time::Duration::from_secs(60));
-    }
+    // Keep this thread alive while the daemon runs in the background.
+    // The thread will be terminated naturally when the process exits.
+    std::thread::park();
 }
