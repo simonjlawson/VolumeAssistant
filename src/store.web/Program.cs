@@ -1,7 +1,17 @@
+using store.web.Email;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorPages();
+
+// Email
+var smtpSettings = builder.Configuration
+    .GetSection(SmtpSettings.SectionName)
+    .Get<SmtpSettings>() ?? new SmtpSettings();
+
+builder.Services.AddSingleton(smtpSettings);
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 
 var app = builder.Build();
 
