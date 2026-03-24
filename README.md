@@ -20,6 +20,7 @@ A Windows service/Tray App that can expose the Windows master volume as a **Matt
   - 100% Windows volume can only be 30% in Amp
   - Mute, Play/Pause, Next, Previous keys sent to device
   - Shift+SCRLK cycles Amp source
+  - Shift+PRTSCR toggles Amp L/R balance to a config value
 
 This integration is a partial C# port of the Python projects:
 [aiostreammagic](https://github.com/noahhusby/aiostreammagic)
@@ -285,6 +286,10 @@ Specify `Host` to connect to a particular device directly (skipping discovery):
     "MediaKeysEnabled": false,
     "SourceSwitchingEnabled": false,
     "SourceSwitchingNames": "PC,AirPlay,Internet Radio"
+  },
+  "App": {
+    "UseSourcePopup": true,
+    "BalanceOffset": -35
   }
 }
 ```
@@ -299,6 +304,7 @@ Specify `Host` to connect to a particular device directly (skipping discovery):
 * **MediaKeysEnabled** - When `true`, the service intercepts Windows media key presses (Play/Pause, Next Track, Previous Track) and forwards them as transport control commands to the Cambridge Audio device. Default is `false`.
 * **SourceSwitchingEnabled** - When `true`, Shift+SCRLK will cycle through the sources listed in `SourceSwitchingNames`. Default is `false`.
 * **SourceSwitchingNames** - Comma-separated list of source names to cycle through when `SourceSwitchingEnabled` is `true`. Each name must match a source name on the device (case-insensitive). Example: `"PC,TV,Spotify"`. On each key press the service advances to the next source in the list, wrapping around from the last back to the first. If the current source is not in the list, it switches to the first entry.
+* **BalanceOffset** - An int ranging -100 to +100 controls the Windows or Cambridge Audio L/R balance, with -100 being 100% Left. Shift+PrtScr keys will toggle this balance setting.
 
 ### Device Discovery
 
