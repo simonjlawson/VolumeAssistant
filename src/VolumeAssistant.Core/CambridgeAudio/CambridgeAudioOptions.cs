@@ -123,4 +123,11 @@ public sealed class CambridgeAudioOptions
     /// Example: "PC,TV,Spotify".
     /// </summary>
     public string? SourceSwitchingNames { get; set; }
+
+    /// <summary>
+    /// When true (default), pressing Shift+PrintScreen will also set the balance on the Cambridge Audio
+    /// device (mapped from the app's -100..+100 range to the device's -15..+15 range).
+    /// Set to false to leave the Cambridge Audio device balance unchanged when toggling.
+    /// </summary>
+    public bool AdjustCambridgeAudioBalance { get; set; } = true;
 }

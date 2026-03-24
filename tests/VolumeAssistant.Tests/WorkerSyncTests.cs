@@ -91,8 +91,7 @@ namespace VolumeAssistant.Tests
             public Task PlayPauseAsync(CancellationToken ct = default) => Task.CompletedTask;
             public Task NextTrackAsync(CancellationToken ct = default) => Task.CompletedTask;
             public Task PreviousTrackAsync(CancellationToken ct = default) => Task.CompletedTask;
-
-            public void RaiseStateChanged(int volumePercent, bool mute)
+            public Task SetBalanceAsync(int balance, CancellationToken ct = default) => Task.CompletedTask;(int volumePercent, bool mute)
             {
                 _stateChanged?.Invoke(this, new CambridgeAudioStateChangedEventArgs(new CambridgeAudioState
                 {

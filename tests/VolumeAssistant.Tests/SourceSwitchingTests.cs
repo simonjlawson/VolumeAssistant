@@ -83,6 +83,7 @@ namespace VolumeAssistant.Tests
             public Task PlayPauseAsync(CancellationToken ct = default) { PlayPauseCalls++; return Task.CompletedTask; }
             public Task NextTrackAsync(CancellationToken ct = default) { NextTrackCalls++; return Task.CompletedTask; }
             public Task PreviousTrackAsync(CancellationToken ct = default) { PreviousTrackCalls++; return Task.CompletedTask; }
+            public Task SetBalanceAsync(int balance, CancellationToken ct = default) => Task.CompletedTask;
         }
 
         private sealed class NopAudioController : IAudioController

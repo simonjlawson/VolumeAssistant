@@ -35,6 +35,8 @@ public sealed class VolumeSyncCoordinator
     private readonly float _balanceOffset;
     // Tracks whether the balance is currently shifted (true) or centred (false).
     private bool _balanceActive;
+    private readonly bool _adjustWindowsBalance;
+    private readonly bool _adjustCambridgeAudioBalance;
 
     // Internal test seam: allow tests to set or get the syncer instance directly.
     internal CambridgeAudioSyncer? CambridgeSyncer
@@ -52,7 +54,9 @@ public sealed class VolumeSyncCoordinator
         ICambridgeAudioClient? cambridgeAudio,
         CambridgeAudioOptions cambridgeOptions,
         MatterOptions matterOptions,
-        float balanceOffset = 0f)
+        float balanceOffset = 0f,
+        bool adjustWindowsBalance = false,
+        bool adjustCambridgeAudioBalance = true)
     {
         _audioController = audioController ?? throw new ArgumentNullException(nameof(audioController));
         _matterDevice = matterDevice ?? throw new ArgumentNullException(nameof(matterDevice));
@@ -63,6 +67,8 @@ public sealed class VolumeSyncCoordinator
         _cambridgeOptions = cambridgeOptions ?? new CambridgeAudioOptions();
         _matterOptions = matterOptions ?? new MatterOptions();
         _balanceOffset = Math.Clamp(balanceOffset, -100f, 100f);
+        _adjustWindowsBalance = adjustWindowsBalance;
+        _adjustCambridgeAudioBalance = adjustCambridgeAudioBalance;
     }
 
     public Task StartAsync(CancellationToken stoppingToken)
@@ -204,8 +210,11 @@ public sealed class VolumeSyncCoordinator
         }
 
         // Start a balance-only media key listener when no full listener was created above
-        // but a non-zero balance offset is configured (Shift+PrintScreen support).
-        if (_mediaKeyListener == null && _balanceOffset != 0f)
+        // and at least one of Windows or Cambridge Audio balance adjustment is enabled with
+        // a non-zero offset.
+        bool cambridgeBalanceUsable = _adjustCambridgeAudioBalance && _cambridgeAudio != null;
+        bool needsBalanceListener = _balanceOffset != 0f && (_adjustWindowsBalance || cambridgeBalanceUsable);
+        if (_mediaKeyListener == null && needsBalanceListener)
         {
             _mediaKeyListener = new MediaKeyListener();
             _mediaKeyListener.BalanceToggleRequested += OnMediaKeyBalanceToggleRequestedInternal;
@@ -495,19 +504,44 @@ public sealed class VolumeSyncCoordinator
 
     internal void OnMediaKeyBalanceToggleRequestedInternal(object? sender, EventArgs e)
     {
-        try
+        _balanceActive = !_balanceActive;
+        float targetOffset = _balanceActive ? _balanceOffset : 0f;
+
+        if (_adjustWindowsBalance)
         {
-            _balanceActive = !_balanceActive;
-            float targetOffset = _balanceActive ? _balanceOffset : 0f;
-            _audioController.SetBalance(targetOffset);
-            _logger.LogInformation(
-                "Balance toggle: {State} (offset {Offset:+0.#;-0.#;0})",
-                _balanceActive ? "on" : "off",
-                targetOffset);
+            try
+            {
+                _audioController.SetBalance(targetOffset);
+                _logger.LogInformation(
+                    "Windows balance toggle: {State} (offset {Offset:+0.#;-0.#;0})",
+                    _balanceActive ? "on" : "off",
+                    targetOffset);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to apply Windows audio balance toggle.");
+            }
         }
-        catch (Exception ex)
+
+        if (_adjustCambridgeAudioBalance && _cambridgeAudio != null && _cambridgeAudio.IsConnected)
         {
-            _logger.LogWarning(ex, "Failed to apply audio balance toggle.");
+            // Map app offset (-100..+100) to Cambridge Audio native range (-15..+15).
+            int cambridgeBalance = (int)Math.Round(targetOffset * 15f / 100f);
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _cambridgeAudio.SetBalanceAsync(cambridgeBalance).ConfigureAwait(false);
+                    _logger.LogInformation(
+                        "Cambridge Audio balance toggle: {State} (balance {Balance})",
+                        _balanceActive ? "on" : "off",
+                        cambridgeBalance);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to apply Cambridge Audio balance toggle.");
+                }
+            });
         }
     }
 

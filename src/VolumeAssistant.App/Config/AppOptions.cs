@@ -17,7 +17,14 @@ internal sealed class AppOptions
     /// The stereo balance offset applied when the balance toggle (Shift+PrintScreen) is
     /// activated. A negative value shifts audio towards the left channel (e.g. -20 reduces
     /// the right channel by 20 %). A positive value shifts towards the right channel.
-    /// Set to 0 to disable balance toggling. Defaults to -20.
+    /// Range is -100 to +100. Defaults to -20.
     /// </summary>
     public float BalanceOffset { get; set; } = DefaultBalanceOffset;
+
+    /// <summary>
+    /// When true, pressing Shift+PrintScreen will adjust the Windows audio stereo balance
+    /// using the value in <see cref="BalanceOffset"/>.
+    /// Defaults to false.
+    /// </summary>
+    public bool AdjustWindowsBalance { get; set; } = false;
 }

@@ -83,6 +83,14 @@ public interface ICambridgeAudioClient : IAsyncDisposable
     Task PreviousTrackAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Sets the stereo balance for the internal pre-amp of the device.
+    /// </summary>
+    /// <param name="balance">
+    /// Balance value in the range -15 (full left) to +15 (full right). 0 is centred.
+    /// </param>
+    Task SetBalanceAsync(int balance, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Retrieves the current zone state from the device.
     /// </summary>
     Task<CambridgeAudioState> GetStateAsync(CancellationToken cancellationToken = default);

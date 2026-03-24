@@ -39,7 +39,9 @@ internal sealed class AppWorker : BackgroundService
             cambridgeAudio,
             cambridgeOptions?.Value ?? new CambridgeAudioOptions(),
             matterOptions?.Value ?? new MatterOptions(),
-            appOptions?.Value?.BalanceOffset ?? AppOptions.DefaultBalanceOffset);
+            appOptions?.Value?.BalanceOffset ?? AppOptions.DefaultBalanceOffset,
+            appOptions?.Value?.AdjustWindowsBalance ?? false,
+            cambridgeOptions?.Value?.AdjustCambridgeAudioBalance ?? true);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
