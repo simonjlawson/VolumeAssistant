@@ -76,7 +76,8 @@ namespace VolumeAssistant.Tests
                 VolumeChanged?.Invoke(this, new VolumeChangedEventArgs(LastSetVolume, muted));
             }
 
-            public void RaiseVolumeChanged(float volumePercent, bool muted)
+            public void SetBalance(float balanceOffset) { }
+            public float GetBalance() => 0f;(float volumePercent, bool muted)
             {
                 LastSetVolume = volumePercent;
                 LastSetMuted = muted;

@@ -93,6 +93,18 @@ public sealed class RetryingAudioController : IAudioController
         Inner.SetMuted(muted);
     }
 
+    public void SetBalance(float balanceOffset)
+    {
+        ThrowIfDisposed();
+        Inner.SetBalance(balanceOffset);
+    }
+
+    public float GetBalance()
+    {
+        ThrowIfDisposed();
+        return Inner.GetBalance();
+    }
+
     public void Dispose()
     {
         if (_disposed)

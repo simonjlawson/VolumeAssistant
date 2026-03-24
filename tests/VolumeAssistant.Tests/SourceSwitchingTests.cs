@@ -92,6 +92,8 @@ namespace VolumeAssistant.Tests
             public bool GetMuted() => false;
             public void SetVolumePercent(float v) { }
             public void SetMuted(bool m) { }
+            public void SetBalance(float balanceOffset) { }
+            public float GetBalance() => 0f;
             public void Dispose() { }
         }
 

@@ -25,7 +25,8 @@ internal sealed class AppWorker : BackgroundService
         ILogger<AppWorker> logger,
         ICambridgeAudioClient? cambridgeAudio = null,
         IOptions<CambridgeAudioOptions>? cambridgeOptions = null,
-        IOptions<MatterOptions>? matterOptions = null)
+        IOptions<MatterOptions>? matterOptions = null,
+        IOptions<AppOptions>? appOptions = null)
     {
         _logger = logger;
 
@@ -37,7 +38,8 @@ internal sealed class AppWorker : BackgroundService
             logger,
             cambridgeAudio,
             cambridgeOptions?.Value ?? new CambridgeAudioOptions(),
-            matterOptions?.Value ?? new MatterOptions());
+            matterOptions?.Value ?? new MatterOptions(),
+            appOptions?.Value?.BalanceOffset ?? AppOptions.DefaultBalanceOffset);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
