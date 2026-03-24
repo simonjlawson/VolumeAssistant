@@ -22,6 +22,8 @@ internal sealed class MediaKeyListener : IDisposable
     private const uint VK_MEDIA_PLAY_PAUSE = 0xB3;
     // Scroll Lock
     private const uint VK_SCROLL = 0x91;
+    // Print Screen
+    private const uint VK_SNAPSHOT = 0x2C;
 
     private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
 
@@ -106,6 +108,9 @@ internal sealed class MediaKeyListener : IDisposable
     /// <summary>Raised when Shift+ScrollLock is pressed to request source switching.</summary>
     public event EventHandler? SourceSwitchRequested;
 
+    /// <summary>Raised when Shift+PrintScreen is pressed to toggle the audio balance.</summary>
+    public event EventHandler? BalanceToggleRequested;
+
     /// <summary>
     /// Starts the media key listener on a background thread.
     /// On non-Windows platforms this is a no-op.
@@ -169,6 +174,23 @@ internal sealed class MediaKeyListener : IDisposable
                         if (shiftDown)
                         {
                             SourceSwitchRequested?.Invoke(this, EventArgs.Empty);
+                        }
+                    }
+                    catch
+                    {
+                        // Don't let an error here crash the hook thread; ignore.
+                    }
+                    break;
+                case VK_SNAPSHOT:
+                    try
+                    {
+                        // Check if Shift is held; Shift+PrintScreen toggles the audio balance.
+                        const int VK_SHIFT = 0x10;
+                        short snapState = GetAsyncKeyState(VK_SHIFT);
+                        bool shiftDown = (snapState & 0x8000) != 0;
+                        if (shiftDown)
+                        {
+                            BalanceToggleRequested?.Invoke(this, EventArgs.Empty);
                         }
                     }
                     catch

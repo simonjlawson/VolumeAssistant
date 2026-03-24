@@ -12,6 +12,7 @@ public sealed class WindowsAudioController : IAudioController
     private MMDevice? _device;
     private AudioEndpointVolumeNotificationDelegate? _notificationDelegate;
     private bool _disposed;
+    private float _balanceOffset;
 
     public event EventHandler<VolumeChangedEventArgs>? VolumeChanged;
 
@@ -109,6 +110,34 @@ public sealed class WindowsAudioController : IAudioController
         ObjectDisposedException.ThrowIf(_disposed, this);
         EnsureDeviceInitialized();
         _device!.AudioEndpointVolume.Mute = muted;
+    }
+
+    /// <inheritdoc />
+    public void SetBalance(float balanceOffset)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        EnsureDeviceInitialized();
+        float clamped = Math.Clamp(balanceOffset, -100f, 100f);
+        var channels = _device!.AudioEndpointVolume.Channels;
+        if (channels.Count < 2)
+            return;
+
+        // Channel 0 = Left, Channel 1 = Right.
+        // Negative offset shifts towards left: reduce the right channel scalar.
+        // Positive offset shifts towards right: reduce the left channel scalar.
+        float leftScalar = clamped >= 0f ? 1.0f - (clamped / 100f) : 1.0f;
+        float rightScalar = clamped <= 0f ? 1.0f + (clamped / 100f) : 1.0f;
+
+        channels[0].VolumeLevelScalar = Math.Clamp(leftScalar, 0f, 1f);
+        channels[1].VolumeLevelScalar = Math.Clamp(rightScalar, 0f, 1f);
+        _balanceOffset = clamped;
+    }
+
+    /// <inheritdoc />
+    public float GetBalance()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return _balanceOffset;
     }
 
     private void OnVolumeNotification(AudioVolumeNotificationData data)

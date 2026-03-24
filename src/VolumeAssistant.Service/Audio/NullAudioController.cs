@@ -18,5 +18,9 @@ public sealed class NullAudioController : IAudioController
 
     public void SetMuted(bool muted) { }
 
+    public void SetBalance(float balanceOffset) { }
+
+    public float GetBalance() => 0f;
+
     public void Dispose() { }
 }

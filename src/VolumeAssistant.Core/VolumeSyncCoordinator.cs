@@ -32,6 +32,12 @@ public sealed class VolumeSyncCoordinator
     private long _lastPowerOnRequestMs;
     private static readonly TimeSpan PowerOnRequestCooldown = TimeSpan.FromMinutes(2);
 
+    private readonly float _balanceOffset;
+    // Tracks whether the balance is currently shifted (true) or centred (false).
+    private bool _balanceActive;
+    private readonly bool _adjustWindowsBalance;
+    private readonly bool _adjustCambridgeAudioBalance;
+
     // Internal test seam: allow tests to set or get the syncer instance directly.
     internal CambridgeAudioSyncer? CambridgeSyncer
     {
@@ -47,7 +53,10 @@ public sealed class VolumeSyncCoordinator
         ILogger logger,
         ICambridgeAudioClient? cambridgeAudio,
         CambridgeAudioOptions cambridgeOptions,
-        MatterOptions matterOptions)
+        MatterOptions matterOptions,
+        float balanceOffset = 0f,
+        bool adjustWindowsBalance = false,
+        bool adjustCambridgeAudioBalance = true)
     {
         _audioController = audioController ?? throw new ArgumentNullException(nameof(audioController));
         _matterDevice = matterDevice ?? throw new ArgumentNullException(nameof(matterDevice));
@@ -57,6 +66,9 @@ public sealed class VolumeSyncCoordinator
         _cambridgeAudio = cambridgeAudio;
         _cambridgeOptions = cambridgeOptions ?? new CambridgeAudioOptions();
         _matterOptions = matterOptions ?? new MatterOptions();
+        _balanceOffset = Math.Clamp(balanceOffset, -100f, 100f);
+        _adjustWindowsBalance = adjustWindowsBalance;
+        _adjustCambridgeAudioBalance = adjustCambridgeAudioBalance;
     }
 
     public Task StartAsync(CancellationToken stoppingToken)
@@ -191,9 +203,23 @@ public sealed class VolumeSyncCoordinator
                 _mediaKeyListener.NextTrackPressed += OnMediaKeyNextTrack;
                 _mediaKeyListener.PreviousTrackPressed += OnMediaKeyPreviousTrack;
                 _mediaKeyListener.SourceSwitchRequested += OnMediaKeySourceSwitchRequested;
+                _mediaKeyListener.BalanceToggleRequested += OnMediaKeyBalanceToggleRequestedInternal;
                 _mediaKeyListener.Start();
                 _logger.LogInformation("Media key listener started (Play/Pause, Next, Previous forwarded to Cambridge Audio).");
             }
+        }
+
+        // Start a balance-only media key listener when no full listener was created above
+        // and at least one of Windows or Cambridge Audio balance adjustment is enabled with
+        // a non-zero offset.
+        bool cambridgeBalanceUsable = _adjustCambridgeAudioBalance && _cambridgeAudio != null;
+        bool needsBalanceListener = _balanceOffset != 0f && (_adjustWindowsBalance || cambridgeBalanceUsable);
+        if (_mediaKeyListener == null && needsBalanceListener)
+        {
+            _mediaKeyListener = new MediaKeyListener();
+            _mediaKeyListener.BalanceToggleRequested += OnMediaKeyBalanceToggleRequestedInternal;
+            _mediaKeyListener.Start();
+            _logger.LogInformation("Media key listener started (balance toggle only).");
         }
 
         return Task.CompletedTask;
@@ -244,17 +270,19 @@ public sealed class VolumeSyncCoordinator
             }
 
             await _cambridgeAudio.DisconnectAsync().ConfigureAwait(false);
+        }
 
-            // Dispose media key listener
-            if (_mediaKeyListener != null)
-            {
-                _mediaKeyListener.PlayPausePressed -= OnMediaKeyPlayPause;
-                _mediaKeyListener.NextTrackPressed -= OnMediaKeyNextTrack;
-                _mediaKeyListener.PreviousTrackPressed -= OnMediaKeyPreviousTrack;
-                _mediaKeyListener.SourceSwitchRequested -= OnMediaKeySourceSwitchRequested;
-                _mediaKeyListener.Dispose();
-                _mediaKeyListener = null;
-            }
+        // Dispose the media key listener regardless of whether Cambridge Audio is configured.
+        // Unsubscribes all registered handlers (Cambridge Audio handlers are no-ops when not subscribed).
+        if (_mediaKeyListener != null)
+        {
+            _mediaKeyListener.PlayPausePressed -= OnMediaKeyPlayPause;
+            _mediaKeyListener.NextTrackPressed -= OnMediaKeyNextTrack;
+            _mediaKeyListener.PreviousTrackPressed -= OnMediaKeyPreviousTrack;
+            _mediaKeyListener.SourceSwitchRequested -= OnMediaKeySourceSwitchRequested;
+            _mediaKeyListener.BalanceToggleRequested -= OnMediaKeyBalanceToggleRequestedInternal;
+            _mediaKeyListener.Dispose();
+            _mediaKeyListener = null;
         }
 
         if (_matterOptions.Enabled)
@@ -472,6 +500,48 @@ public sealed class VolumeSyncCoordinator
         _logger.LogInformation(
             "Cambridge Audio device connection state: {State}",
             e.IsConnected ? "Connected" : "Disconnected");
+    }
+
+    internal void OnMediaKeyBalanceToggleRequestedInternal(object? sender, EventArgs e)
+    {
+        _balanceActive = !_balanceActive;
+        float targetOffset = _balanceActive ? _balanceOffset : 0f;
+
+        _logger.LogInformation(
+            "Balance toggle: {State} (offset {Offset:+0.#;-0.#;0})",
+            _balanceActive ? "on" : "off",
+            targetOffset);
+
+        if (_adjustWindowsBalance)
+        {
+            try
+            {
+                _audioController.SetBalance(targetOffset);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to apply Windows audio balance toggle.");
+            }
+        }
+
+        if (_adjustCambridgeAudioBalance && _cambridgeAudio != null && _cambridgeAudio.IsConnected)
+        {
+            // Map app offset (-100..+100) to Cambridge Audio native range (-15..+15).
+            int cambridgeBalance = (int)Math.Round(targetOffset * 15f / 100f);
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _cambridgeAudio.SetBalanceAsync(cambridgeBalance).ConfigureAwait(false);
+                    _logger.LogInformation(
+                        "Cambridge Audio balance set to {Balance}", cambridgeBalance);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to apply Cambridge Audio balance toggle.");
+                }
+            });
+        }
     }
 
     private void OnMediaKeyPlayPause(object? sender, EventArgs e)

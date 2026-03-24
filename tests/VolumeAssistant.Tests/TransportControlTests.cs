@@ -151,6 +151,7 @@ namespace VolumeAssistant.Tests
             public Task PlayPauseAsync(CancellationToken ct = default) { PlayPauseCalls++; return Task.CompletedTask; }
             public Task NextTrackAsync(CancellationToken ct = default) { NextTrackCalls++; return Task.CompletedTask; }
             public Task PreviousTrackAsync(CancellationToken ct = default) { PreviousTrackCalls++; return Task.CompletedTask; }
+            public Task SetBalanceAsync(int balance, CancellationToken ct = default) => Task.CompletedTask;
         }
 
         private sealed class NopAudioController : IAudioController
@@ -160,6 +161,8 @@ namespace VolumeAssistant.Tests
             public bool GetMuted() => false;
             public void SetVolumePercent(float v) { }
             public void SetMuted(bool m) { }
+            public void SetBalance(float balanceOffset) { }
+            public float GetBalance() => 0f;
             public void Dispose() { }
         }
 

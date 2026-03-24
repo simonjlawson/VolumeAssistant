@@ -36,6 +36,10 @@ namespace VolumeAssistant.Tests
                 VolumeChanged?.Invoke(this, new VolumeChangedEventArgs(LastSetVolume, muted));
             }
 
+            public float LastSetBalance { get; private set; }
+            public void SetBalance(float balanceOffset) => LastSetBalance = balanceOffset;
+            public float GetBalance() => LastSetBalance;
+
             public void RaiseVolumeChanged(float volumePercent, bool muted)
             {
                 LastSetVolume = volumePercent;
@@ -87,6 +91,7 @@ namespace VolumeAssistant.Tests
             public Task PlayPauseAsync(CancellationToken ct = default) => Task.CompletedTask;
             public Task NextTrackAsync(CancellationToken ct = default) => Task.CompletedTask;
             public Task PreviousTrackAsync(CancellationToken ct = default) => Task.CompletedTask;
+            public Task SetBalanceAsync(int balance, CancellationToken ct = default) => Task.CompletedTask;
 
             public void RaiseStateChanged(int volumePercent, bool mute)
             {

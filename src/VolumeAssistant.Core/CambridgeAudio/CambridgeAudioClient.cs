@@ -25,6 +25,7 @@ public sealed class CambridgeAudioClient : ICambridgeAudioClient
     private const string EndpointZoneState = "/zone/state";
     private const string EndpointPower = "/system/power";
     private const string EndpointPlayControl = "/zone/play_control";
+    private const string EndpointAudio = "/zone/audio";
 
     private readonly CambridgeAudioOptions _options;
     private readonly ILogger<CambridgeAudioClient> _logger;
@@ -369,6 +370,18 @@ public sealed class CambridgeAudioClient : ICambridgeAudioClient
             _logger.LogInformation("Audio Source unable to perform PreviousTrack");
             return;
         }
+    }
+
+    /// <inheritdoc />
+    public async Task SetBalanceAsync(int balance, CancellationToken cancellationToken = default)
+    {
+        if (balance < -15 || balance > 15)
+            throw new ArgumentOutOfRangeException(nameof(balance), "Balance must be between -15 and 15.");
+
+        await RequestAsync(
+            EndpointAudio,
+            new Dictionary<string, object?> { ["zone"] = _options.Zone, ["balance"] = balance },
+            cancellationToken);
     }
 
     // ────────────────────────────────────────────────────────────────────────────

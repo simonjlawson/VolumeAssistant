@@ -37,6 +37,7 @@ internal sealed class MainForm : Form
     private Button _caConnectButton = null!;
     private Label _winVolumeText = null!;
     private Label _winMutedText = null!;
+    private Label _winBalanceText = null!;
     private Label _buildDateText = null!;
 
     // ── Configuration tab controls ────────────────────────────────────────────
@@ -58,6 +59,7 @@ internal sealed class MainForm : Form
     private Label _appSettingsPathLabel = null!;
     private CheckBox _useSourcePopupChk = null!;
     private Button _advancedEditBtn = null!;
+    private TextBox _balanceTb = null!;
 
     // ── Logs tab controls ─────────────────────────────────────────────────────
     private ListBox _logListBox = null!;
@@ -195,6 +197,14 @@ internal sealed class MainForm : Form
             {
                 _winVolumeText.Text = $"{_audioController.GetVolumePercent():F0}%";
                 _winMutedText.Text = _audioController.GetMuted() ? "Yes" : "No";
+                    try
+                    {
+                        _winBalanceText.Text = $"{_audioController.GetBalance():F0}%"; // show as percentage offset
+                    }
+                    catch
+                    {
+                        _winBalanceText.Text = "—";
+                    }
             }
         }
         catch
@@ -255,6 +265,7 @@ internal sealed class MainForm : Form
             if (appOpts is not null)
             {
                 _useSourcePopupChk.Checked = appOpts.UseSourcePopup;
+                _balanceTb.Text = appOpts.BalanceOffset.ToString(CultureInfo.InvariantCulture);
             }
         }
         catch
@@ -316,6 +327,10 @@ internal sealed class MainForm : Form
             // App-level section
             var appNode = root[AppOptions.SectionName] as JsonObject ?? new JsonObject();
             appNode["UseSourcePopup"] = _useSourcePopupChk.Checked;
+            if (float.TryParse(_balanceTb.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var bo))
+                appNode["BalanceOffset"] = bo;
+            else
+                appNode.Remove("BalanceOffset");
             root[AppOptions.SectionName] = appNode;
 
             // Ensure AppData folder exists
@@ -603,6 +618,7 @@ internal sealed class MainForm : Form
         AddSectionHeader("Windows Audio");
         (_, _winVolumeText) = AddRow("Volume");
         (_, _winMutedText) = AddRow("Muted");
+        (_, _winBalanceText) = AddRow("Balance");
 
         // ── App section ──
         AddSectionHeader("App");
@@ -664,6 +680,7 @@ internal sealed class MainForm : Form
         _sourceSwitchingChk = new CheckBox { Width = 20 };
         _sourceNamesTb = new TextBox();
         _useSourcePopupChk = new CheckBox { Width = 20 };
+        _balanceTb = new TextBox();
 
         AddConfigRow("Enable", _enableChk);
         AddConfigRow("Host", _hostTb);
@@ -679,6 +696,7 @@ internal sealed class MainForm : Form
         AddConfigRow("Media Keys", _mediaKeysChk);
         AddConfigRow("Source Switching", _sourceSwitchingChk);
         AddConfigRow("Source Names", _sourceNamesTb);
+        AddConfigRow("Balance Offset", _balanceTb);
         AddConfigRow("Show Source Popup", _useSourcePopupChk);
 
         // Separator
