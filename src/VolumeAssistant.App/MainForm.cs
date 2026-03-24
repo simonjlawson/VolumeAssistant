@@ -199,7 +199,7 @@ internal sealed class MainForm : Form
                 _winMutedText.Text = _audioController.GetMuted() ? "Yes" : "No";
                     try
                     {
-                        _winBalanceText.Text = $"{_audioController.GetBalance():F0}" + "%"; // show as percentage offset
+                        _winBalanceText.Text = $"{_audioController.GetBalance():F0}%"; // show as percentage offset
                     }
                     catch
                     {

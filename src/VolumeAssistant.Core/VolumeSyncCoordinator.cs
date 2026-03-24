@@ -507,15 +507,16 @@ public sealed class VolumeSyncCoordinator
         _balanceActive = !_balanceActive;
         float targetOffset = _balanceActive ? _balanceOffset : 0f;
 
+        _logger.LogInformation(
+            "Balance toggle: {State} (offset {Offset:+0.#;-0.#;0})",
+            _balanceActive ? "on" : "off",
+            targetOffset);
+
         if (_adjustWindowsBalance)
         {
             try
             {
                 _audioController.SetBalance(targetOffset);
-                _logger.LogInformation(
-                    "Windows balance toggle: {State} (offset {Offset:+0.#;-0.#;0})",
-                    _balanceActive ? "on" : "off",
-                    targetOffset);
             }
             catch (Exception ex)
             {
@@ -533,9 +534,7 @@ public sealed class VolumeSyncCoordinator
                 {
                     await _cambridgeAudio.SetBalanceAsync(cambridgeBalance).ConfigureAwait(false);
                     _logger.LogInformation(
-                        "Cambridge Audio balance toggle: {State} (balance {Balance})",
-                        _balanceActive ? "on" : "off",
-                        cambridgeBalance);
+                        "Cambridge Audio balance set to {Balance}", cambridgeBalance);
                 }
                 catch (Exception ex)
                 {
