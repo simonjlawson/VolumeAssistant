@@ -1,6 +1,9 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Text.RegularExpressions;
+using System.IO;
+using Microsoft.Extensions.Configuration;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using VolumeAssistant.App.Business;
@@ -65,6 +68,23 @@ internal sealed class TrayApplication : IDisposable
     private IHost BuildHost()
     {
         var builder = MicrosoftHost.CreateApplicationBuilder();
+
+        // Allow per-user AppData appsettings.json to override the application folder
+        // configuration so user edits via Advanced Edit (saved to AppData) are respected.
+        try
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var dir = Path.Combine(appData, "VolumeAssistant");
+            var appDataPath = Path.Combine(dir, "appsettings.json");
+            if (File.Exists(appDataPath))
+            {
+                builder.Configuration.AddJsonFile(appDataPath, optional: true, reloadOnChange: false);
+            }
+        }
+        catch
+        {
+            // best-effort only
+        }
 
         // Marshal log entries onto the UI thread using the Windows Forms synchronisation context.
         var syncContext = System.Threading.SynchronizationContext.Current;
@@ -177,38 +197,78 @@ internal sealed class TrayApplication : IDisposable
         foreach (var item in e.NewItems)
         {
             if (item is not string s) continue;
-            // Respond to either a completed switch or an immediate request so the UI
-            // can show a transient popup right away when the media key is pressed.
-            if (!s.Contains("Source switched:", StringComparison.OrdinalIgnoreCase)
-                && !s.Contains("Source switch requested:", StringComparison.OrdinalIgnoreCase)) continue;
-
-            // Attempt to extract the destination/source name from the log message
-            var marker = s.Contains("Source switched:", StringComparison.OrdinalIgnoreCase)
-                ? "Source switched:"
-                : "Source switch requested:";
-            var mpos = s.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
-            string payload = mpos >= 0 ? s.Substring(mpos + marker.Length).Trim() : s;
-
-            // Expected payload: "{From} → {To}" - take the part after the arrow if present
-            string display = payload;
-            var arrowIdx = payload.IndexOf('→');
-            if (arrowIdx >= 0 && arrowIdx + 1 < payload.Length)
-                display = payload.Substring(arrowIdx + 1).Trim();
-
-            // Create and show popup on UI thread (if enabled)
-            try
-            {
-                if (_appOptions?.UseSourcePopup ?? true)
+                // Respond to either a completed switch or an immediate request so the UI
+                // can show a transient popup right away when the media key is pressed.
+                if (s.Contains("Source switched:", StringComparison.OrdinalIgnoreCase)
+                    || s.Contains("Source switch requested:", StringComparison.OrdinalIgnoreCase))
                 {
-                    var factory = _sourcePopupFactory ?? _host?.Services.GetService<ISourcePopupFactory>() ?? new DefaultSourcePopupFactory();
-                    var popup = factory.Create(display);
-                    popup.ShowTemporary();
+                    // Attempt to extract the destination/source name from the log message
+                    var marker = s.Contains("Source switched:", StringComparison.OrdinalIgnoreCase)
+                        ? "Source switched:"
+                        : "Source switch requested:";
+                    var mpos = s.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+                    string payload = mpos >= 0 ? s.Substring(mpos + marker.Length).Trim() : s;
+
+                    // Expected payload: "{From} → {To}" - take the part after the arrow if present
+                    string display = payload;
+                    var arrowIdx = payload.IndexOf('→');
+                    if (arrowIdx >= 0 && arrowIdx + 1 < payload.Length)
+                        display = payload.Substring(arrowIdx + 1).Trim();
+
+                    // Create and show popup on UI thread (if enabled)
+                    try
+                    {
+                        if (_appOptions?.UseSourcePopup ?? true)
+                        {
+                            var factory = _sourcePopupFactory ?? _host?.Services.GetService<ISourcePopupFactory>() ?? new DefaultSourcePopupFactory();
+                            var popup = factory.Create(display);
+                            popup.ShowTemporary();
+                        }
+                    }
+                    catch
+                    {
+                        // ignore any UI errors for robustness
+                    }
                 }
-            }
-            catch
-            {
-                // ignore any UI errors for robustness
-            }
+
+                // Also react to balance toggle log entries and show a small popup describing the new balance state
+                else if (s.Contains("Balance toggle:", StringComparison.OrdinalIgnoreCase))
+                {
+                    var marker = "Balance toggle:";
+                    var mpos = s.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+                    var payload = mpos >= 0 ? s.Substring(mpos + marker.Length).Trim() : s;
+
+                    // Try to extract offset value from pattern "(offset +20)" using regex
+                    string display = payload;
+                    try
+                    {
+                        var m = Regex.Match(payload, "offset\\s*([+-]?[0-9]+(?:\\.[0-9]+)?)");
+                        if (m.Success && float.TryParse(m.Groups[1].Value, out var off))
+                        {
+                            if (off == 0f) display = "Balance: Centre";
+                            else if (off < 0f) display = $"Balance: Left {Math.Abs(off):F0}%";
+                            else display = $"Balance: Right {off:F0}%";
+                        }
+                    }
+                    catch
+                    {
+                        // fall back to raw payload
+                    }
+
+                    try
+                    {
+                        if (_appOptions?.UseSourcePopup ?? true)
+                        {
+                            var factory = _sourcePopupFactory ?? _host?.Services.GetService<ISourcePopupFactory>() ?? new DefaultSourcePopupFactory();
+                            var popup = factory.Create(display);
+                            popup.ShowTemporary();
+                        }
+                    }
+                    catch
+                    {
+                        // ignore UI errors
+                    }
+                }
         }
     }
 }
