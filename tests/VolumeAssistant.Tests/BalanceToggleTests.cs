@@ -94,7 +94,7 @@ namespace VolumeAssistant.Tests
         }
 
         [Theory]
-        [InlineData(-20f, -20f)]   // within range – stored as-is
+        [InlineData(-20f, -20f)]   // within range - stored as-is
         [InlineData(-150f, -100f)] // clamped to min
         [InlineData(150f, 100f)]   // clamped to max
         public void BalanceOffset_ClampedToValidRange(float input, float expected)

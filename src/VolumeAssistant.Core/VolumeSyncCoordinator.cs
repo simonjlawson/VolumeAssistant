@@ -201,19 +201,11 @@ public sealed class VolumeSyncCoordinator
                 _mediaKeyListener.Start();
                 _logger.LogInformation("Media key listener started (Play/Pause, Next, Previous forwarded to Cambridge Audio).");
             }
-            else if (_balanceOffset != 0f)
-            {
-                // Start the listener solely for the balance toggle shortcut.
-                _mediaKeyListener = new MediaKeyListener();
-                _mediaKeyListener.BalanceToggleRequested += OnMediaKeyBalanceToggleRequestedInternal;
-                _mediaKeyListener.Start();
-                _logger.LogInformation("Media key listener started (balance toggle only).");
-            }
         }
 
-        // When Cambridge Audio is not configured, start the media key listener for balance
-        // toggling only (Shift+PrintScreen) if a non-zero balance offset is set.
-        if (_cambridgeAudio == null && _balanceOffset != 0f)
+        // Start a balance-only media key listener when no full listener was created above
+        // but a non-zero balance offset is configured (Shift+PrintScreen support).
+        if (_mediaKeyListener == null && _balanceOffset != 0f)
         {
             _mediaKeyListener = new MediaKeyListener();
             _mediaKeyListener.BalanceToggleRequested += OnMediaKeyBalanceToggleRequestedInternal;
@@ -269,23 +261,16 @@ public sealed class VolumeSyncCoordinator
             }
 
             await _cambridgeAudio.DisconnectAsync().ConfigureAwait(false);
-
-            // Dispose media key listener
-            if (_mediaKeyListener != null)
-            {
-                _mediaKeyListener.PlayPausePressed -= OnMediaKeyPlayPause;
-                _mediaKeyListener.NextTrackPressed -= OnMediaKeyNextTrack;
-                _mediaKeyListener.PreviousTrackPressed -= OnMediaKeyPreviousTrack;
-                _mediaKeyListener.SourceSwitchRequested -= OnMediaKeySourceSwitchRequested;
-                _mediaKeyListener.BalanceToggleRequested -= OnMediaKeyBalanceToggleRequestedInternal;
-                _mediaKeyListener.Dispose();
-                _mediaKeyListener = null;
-            }
         }
 
-        // Dispose a balance-only media key listener that was started without Cambridge Audio.
+        // Dispose the media key listener regardless of whether Cambridge Audio is configured.
+        // Unsubscribes all registered handlers (Cambridge Audio handlers are no-ops when not subscribed).
         if (_mediaKeyListener != null)
         {
+            _mediaKeyListener.PlayPausePressed -= OnMediaKeyPlayPause;
+            _mediaKeyListener.NextTrackPressed -= OnMediaKeyNextTrack;
+            _mediaKeyListener.PreviousTrackPressed -= OnMediaKeyPreviousTrack;
+            _mediaKeyListener.SourceSwitchRequested -= OnMediaKeySourceSwitchRequested;
             _mediaKeyListener.BalanceToggleRequested -= OnMediaKeyBalanceToggleRequestedInternal;
             _mediaKeyListener.Dispose();
             _mediaKeyListener = null;

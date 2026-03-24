@@ -185,8 +185,8 @@ internal sealed class MediaKeyListener : IDisposable
                     try
                     {
                         // Check if Shift is held; Shift+PrintScreen toggles the audio balance.
-                        const int VK_SHIFT_SNAP = 0x10;
-                        short snapState = GetAsyncKeyState(VK_SHIFT_SNAP);
+                        const int VK_SHIFT = 0x10;
+                        short snapState = GetAsyncKeyState(VK_SHIFT);
                         bool shiftDown = (snapState & 0x8000) != 0;
                         if (shiftDown)
                         {

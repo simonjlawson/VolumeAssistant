@@ -77,7 +77,9 @@ namespace VolumeAssistant.Tests
             }
 
             public void SetBalance(float balanceOffset) { }
-            public float GetBalance() => 0f;(float volumePercent, bool muted)
+            public float GetBalance() => 0f;
+
+            public void RaiseVolumeChanged(float volumePercent, bool muted)
             {
                 LastSetVolume = volumePercent;
                 LastSetMuted = muted;

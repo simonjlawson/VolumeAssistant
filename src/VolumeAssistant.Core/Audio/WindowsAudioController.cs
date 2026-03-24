@@ -125,7 +125,7 @@ public sealed class WindowsAudioController : IAudioController
         // Channel 0 = Left, Channel 1 = Right.
         // Negative offset shifts towards left: reduce the right channel scalar.
         // Positive offset shifts towards right: reduce the left channel scalar.
-        float leftScalar  = clamped >= 0f ? 1.0f - (clamped / 100f) : 1.0f;
+        float leftScalar = clamped >= 0f ? 1.0f - (clamped / 100f) : 1.0f;
         float rightScalar = clamped <= 0f ? 1.0f + (clamped / 100f) : 1.0f;
 
         channels[0].VolumeLevelScalar = Math.Clamp(leftScalar, 0f, 1f);
