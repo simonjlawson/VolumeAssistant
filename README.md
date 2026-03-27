@@ -1,30 +1,26 @@
 # VolumeAssistant
 
 ## Summary
+
 Directly syncs Windows volume with external Matter devices and integrates a Cambridge Audio StreamMagic device with the PC.
 
-## Functionality
 A Windows service/Tray App that can expose the Windows master volume as a **Matter** smart home device on the local network for other devices to match. Connects to Cambridge Audio StreamMagic devices and directly syncs Windows volume. A Home Assistant, Google Home, or Apple Home controller can discover, commission, and control the Windows PC volume as if it were a dimmable light — where the *brightness* (level 0–254) maps directly to *volume* (0–100%).
+
+## Features
 
 - **Windows Service** (`VolumeAssistant.Service`) – runs in the background without a UI, starts automatically with Windows, limited to volume handling, no key presses can be intercepted.
 - **System Tray App** (`VolumeAssistant.App`) – a lightweight **Native AOT** Forms app able to intercept media keys and Shift+SCRLK for source switching.
 - **Real-time volume sync** – whenever the master volume changes in Windows, the change is immediately reported to all subscribed Matter controllers.
 - **Two-way control** – Matter controllers can set the volume (Level Control cluster) or mute it (On/Off cluster).
-- **mDNS advertisement** – the device is automatically discoverable via DNS-SD (`_matterc._udp` + `_matter._tcp`).
-- **Matter protocol** – UDP server on port 5540 with standard Interaction Model: Read, Write, Subscribe, and Command operations.
+- **mDNS advertisement** – the device is automatically discoverable via DNS-SD.
 - **Cambridge Audio** - Direct integration of Cambridge Audio API for Windows → CA volume sync and configurable source/output/power control.
-  - Power On on login/wakeup
-  - Power Off on shutdown/sleep
+  - Power On on login/wakeup; Power Off on shutdown/sleep
   - Switch to USB source on login
-  - Windows volume effects Amped volume
-  - 100% Windows volume can only be 30% in Amp
+  - Windows volume controls Amp volume (with configurable maximum)
   - Mute, Play/Pause, Next, Previous keys sent to device
-  - Shift+SCRLK cycles Amp source
-  - Shift+PRTSCR toggles Amp L/R balance to a config value
+  - Shift+SCRLK cycles Amp source; Shift+PRTSCR toggles Amp L/R balance
 
-This integration is a partial C# port of the Python projects:
-[aiostreammagic](https://github.com/noahhusby/aiostreammagic)
-[stream_magic](https://github.com/sebk-666/stream_magic)
+For architecture details, development setup, protocol internals, and Cambridge Audio technical information see [TECHNICAL.md](TECHNICAL.md).
 
 ## Installation
 
@@ -60,202 +56,11 @@ sc.exe create VolumeAssistant binPath="C:\path\to\publish\VolumeAssistant.Servic
 sc.exe start VolumeAssistant
 ```
 
-## Architecture
+## Configuration
 
-The solution is split into three projects sharing common code:
+VolumeAssistant is configured via `appsettings.json`, located in the install directory.
 
-```
-VolumeAssistant.Core     — Shared library: Audio, Cambridge Audio, Matter, VolumeSyncCoordinator
-VolumeAssistant.Service  — Windows Service (headless, starts automatically)
-VolumeAssistant.App      — Native AOT System Tray App (Windows Forms, no .NET runtime required when published)
-```
-
-Both `VolumeAssistant.Service` and `VolumeAssistant.App` reference `VolumeAssistant.Core` for all volume-sync logic.
-
-## Compatibility
-
-StreamMagic is as simple as integrations get so the service should be universal, please do get in contact to confirm/deny other devices work.
-
-| Device | Verified |
-|---|---|
-| Evo 150 SE | Yes |
-
-## Usage
-
-### Requirements
-
-- Windows 10 or later (x64)
-- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) — required to **build** the project
-- MSVC / Visual C++ Build Tools — required to **publish** the Native AOT tray app
-  (install via Visual Studio Installer → *Desktop development with C++*, or the standalone *Build Tools for Visual Studio*)
-- No .NET runtime is required to **run** the published tray app — the Native AOT executable is fully self-contained
-
-### Development
-
-Standard dotnet CLI commands to build, run, and test the solution:
-```bash
-dotnet build VolumeAssistant.slnx
-dotnet run --project src/VolumeAssistant.Service
-dotnet run --project src/VolumeAssistant.App
-dotnet test tests/VolumeAssistant.Tests
-```
-
-Publish the tray app as a Native AOT self-contained executable (requires .NET SDK + MSVC build tools):
-```bash
-dotnet publish src/VolumeAssistant.App -c Release -r win-x64 -o publish/App
-```
-
-Install locally with script:
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistantApp.ps1
-```
-
-### System Tray App Window
-
-Double-click the speaker tray icon (or right-click → Open) to open the window. It shows three tabs:
-
-- **Connection** — Cambridge Audio device status (connected/disconnected, device name, current zone, volume) and Windows audio (current volume, mute state).
-- **Configuration** — Current Cambridge Audio settings loaded from `appsettings.json`, plus the path to the settings file.  Changes are saved back to `appsettings.json`; restart the app to apply them.
-- **Logs** — Live log output from the app with a **Clear Logs** button.
-
-> **Note:** The tray app is built with Windows Forms and published as a Native AOT executable.
-> All forms are created programmatically (no WPF/XAML required at runtime).
-
-### Scripts
-
-PowerShell Helper scripts: see `README-PS-SCRIPTS.md`.
-
-Install System Tray App
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistantApp.ps1
-```
-
-Install Windows Service
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Install-VolumeAssistant.ps1
-```
-
-Configure
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Configure-AppSettings.ps1
-```
-
-Start Service
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Start-VolumeAssistant.ps1
-```
-
-Stop Service
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Stop-VolumeAssistant.ps1
-```
-
-### Manual Service Commands
-
-To Install
-```powershell
-# Publish a self-contained executable
-dotnet publish src/VolumeAssistant.Service -c Release -r win-x64 --self-contained -o publish/
-
-# Install the Windows Service (run as Administrator)
-sc.exe create VolumeAssistant binPath="C:\path\to\publish\VolumeAssistant.Service.exe" start=auto DisplayName="VolumeAssistant Matter Bridge"
-sc.exe description VolumeAssistant "Exposes Windows master volume as a Matter device"
-sc.exe start VolumeAssistant
-```
-
-Uninstall
-```powershell
-sc.exe stop VolumeAssistant
-sc.exe delete VolumeAssistant
-```
-
-## Matter
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│                  VolumeAssistant.Service                     │
-│                                                              │
-│  ┌────────────────────┐      ┌─────────────────────────────┐ │
-│  │ WindowsAudio       │      │ MatterDevice                │ │
-│  │ Controller         │◄────►│  Endpoint 0 (Root)          │ │
-│  │ (NAudio WASAPI)    │      │    BasicInformation cluster │ │
-│  └────────────────────┘      │  Endpoint 1 (Volume)        │ │
-│                              │    OnOff cluster            │ │
-│  ┌────────────────────┐      │    LevelControl cluster     │ │
-│  │ Worker             │◄────►└─────────────────────────────┘ │
-│  │ (BackgroundService)│             │                        │
-│  └────────────────────┘      ┌──────▼──────────────────────┐ │
-│                              │ MatterServer                │ │
-│  ┌───────────────────┐       │ (UDP:5540 Interaction Model │ │
-│  │ MdnsAdvertiser    │       └─────────────────────────────┘ │
-│  │ (_matterc._udp    │                                       │
-│  │  _matter._tcp)    │                                       │
-│  └───────────────────┘                                       │
-└──────────────────────────────────────────────────────────────┘
-```
-
-### Commission into Matter Fabric
-
-After starting the service, open your Matter controller (e.g., Home Assistant) and add a new Matter device.  
-Use the default commissioning PIN: **`20202021`** and discriminator **`3840`**.
-
-The device appears as a **Dimmable Light** where the level (0–100%) controls the Windows volume.
-
-## Cambridge Audio
-
-VolumeAssistant can optionally connect to a [Cambridge Audio StreamMagic](https://www.cambridgeaudio.com/streammagic) amplifier over your local network, providing volume and source control.
-
-### How it works
-
-The service connects to the Cambridge Audio device's built-in WebSocket server at `ws://{host}/smoip` and exchanges JSON messages using the StreamMagic API:
-
-```
-Request:  {"path": "/zone/state", "params": {"zone": "ZONE1", "volume_percent": 50}}
-Response: {"path": "/zone/state", "type": "response", "result": 200, "params": {"data": {...}}}
-Update:   {"path": "/zone/state", "type": "update", "params": {"data": {...}}}
-```
-
-### Supported operations
-
-| Operation | Method |
-|---|---|
-| Get device info | `GetInfoAsync()` |
-| Get available sources | `GetSourcesAsync()` |
-| Get zone state (volume, mute, source) | `GetStateAsync()` |
-| Set volume (0–100%) | `SetVolumeAsync(int)` |
-| Set mute | `SetMuteAsync(bool)` |
-| Select input source | `SetSourceAsync(string sourceId)` |
-| Power on | `PowerOnAsync()` |
-| Network standby | `PowerOffAsync()` |
-| Toggle play/pause | `PlayPauseAsync()` |
-| Next track | `NextTrackAsync()` |
-| Previous track | `PreviousTrackAsync()` |
-
-### Volume synchronisation
-
-When Cambridge Audio integration is enabled, the service keeps the Windows master volume and the Cambridge Audio amplifier volume in sync:
-
-- Windows volume changes → immediately applied to Cambridge Audio amplifier
-- Cambridge Audio volume changes (e.g. hardware knob) → immediately applied to Windows master volume **(Disabled - This causes a horrible loop)**
-- Matter controller commands → applied to both Windows (and therefore Cambridge Audio if enabled)
-
-### Media key transport control
-
-When `MediaKeysEnabled` is `true`, the service installs a low-level Windows keyboard hook and intercepts the following media keys, forwarding each as a StreamMagic transport command to the Cambridge Audio device:
-
-| Key | Action |
-|---|---|
-| Play/Pause | Toggle play/pause (`/zone/play_control` action=toggle) |
-| Next Track | Skip to next track (`/zone/play_control` skip_track=1) |
-| Previous Track | Skip to previous track (`/zone/play_control` skip_track=-1) |
-
-This allows the keyboard media keys to control playback on the Cambridge Audio device rather than (or as well as) any local media player.
-
-When `SourceSwitchingEnabled` is also `true`, the key specified by `SourceSwitchingKey` will cycle through the configured source list instead of sending a transport command.
-
-### Configuration
-
-Enable the integration with `CambridgeAudio:Enable` in `appsettings.json`. If `Host` is left empty, the service will automatically discover StreamMagic devices on your local network at startup using SSDP.
+Enable Cambridge Audio integration with `CambridgeAudio:Enable`. If `Host` is left empty, the service will automatically discover StreamMagic devices on your local network at startup using SSDP.
 
 ```json
 {
@@ -293,32 +98,32 @@ Specify `Host` to connect to a particular device directly (skipping discovery):
   }
 }
 ```
-* **Enable** - Set to `true` to enable Cambridge Audio integration. When `true` and `Host` is empty the service will attempt automatic SSDP device discovery on startup.
-* **Host** - Hostname or IP address of the device. Leave empty to use automatic discovery.
-* **StartPower** - Optional initial power state to set on startup. `true` for on, `false` for standby. If not specified, retains current power state.
-* **ClosePower** - Optional setting to power off the amplifier when the service stops. `true` to power off, `false` to leave on. Default is `false`.
-* **StartVolume** - Optional initial volume level (0–100%) to set on startup. If not specified, retains current amplifier volume.
-* **StartSourceName** - Optional initial source name to select on startup. Must match a valid source from `GetSourcesAsync()`. If not specified, retains current source.
-* **StartOutput** - Optional initial output name to select on startup. Must match a valid output from `GetOutputsAsync()`. If not specified, retains current output.
-* **MaxVolume** - Optional maximum volume level (0–100) that 100% Windows master volume maps to on the Cambridge Audio device. For example, setting `MaxVolume` to `80` means Windows 100% → Cambridge Audio 80%, Windows 50% → Cambridge Audio 40%, etc. Cambridge Audio volume changes are also scaled back proportionally to Windows volume. Leave `null` (default) to use a 1:1 mapping where Windows 100% = Cambridge Audio 100%.
-* **MediaKeysEnabled** - When `true`, the service intercepts Windows media key presses (Play/Pause, Next Track, Previous Track) and forwards them as transport control commands to the Cambridge Audio device. Default is `false`.
-* **SourceSwitchingEnabled** - When `true`, Shift+SCRLK will cycle through the sources listed in `SourceSwitchingNames`. Default is `false`.
-* **SourceSwitchingNames** - Comma-separated list of source names to cycle through when `SourceSwitchingEnabled` is `true`. Each name must match a source name on the device (case-insensitive). Example: `"PC,TV,Spotify"`. On each key press the service advances to the next source in the list, wrapping around from the last back to the first. If the current source is not in the list, it switches to the first entry.
-* **BalanceOffset** - An int ranging -100 to +100 controls the Windows or Cambridge Audio L/R balance, with -100 being 100% Left. Shift+PrtScr keys will toggle this balance setting.
 
-### Device Discovery
+| Setting | Description |
+|---|---|
+| **Enable** | Set to `true` to enable Cambridge Audio integration. When `true` and `Host` is empty, automatic SSDP device discovery is used on startup. |
+| **Host** | Hostname or IP address of the device. Leave empty to use automatic discovery. |
+| **StartPower** | Optional initial power state on startup. `true` for on, `false` for standby. If not specified, retains current state. |
+| **ClosePower** | Power off the amplifier when the service stops. `true` to power off, `false` to leave on. Default is `false`. |
+| **StartVolume** | Optional initial volume level (0–100%) on startup. If not specified, retains current amplifier volume. |
+| **StartSourceName** | Optional initial source name on startup. Must match a valid source name on the device. If not specified, retains current source. |
+| **StartOutput** | Optional initial output name on startup. Must match a valid output name on the device. If not specified, retains current output. |
+| **MaxVolume** | Maximum volume level (0–100) that 100% Windows master volume maps to on the Cambridge Audio device. For example, `80` means Windows 100% → Cambridge Audio 80%. Leave `null` for a 1:1 mapping. |
+| **MediaKeysEnabled** | When `true`, intercepts Windows media key presses (Play/Pause, Next Track, Previous Track) and forwards them to the Cambridge Audio device. Default is `false`. |
+| **SourceSwitchingEnabled** | When `true`, Shift+SCRLK cycles through the sources listed in `SourceSwitchingNames`. Default is `false`. |
+| **SourceSwitchingNames** | Comma-separated list of source names to cycle through when `SourceSwitchingEnabled` is `true`. Each name must match a source name on the device (case-insensitive). Example: `"PC,TV,Spotify"`. |
+| **BalanceOffset** | An int from -100 to +100 controlling the L/R balance (-100 = 100% Left). Shift+PrtScr toggles this balance. |
 
-When `CambridgeAudio:Enable` is `true` and `Host` is not set, VolumeAssistant will send an SSDP M-SEARCH multicast to `239.255.255.250:1900` and connect to the first Cambridge Audio StreamMagic device that responds. If no device is found within the discovery timeout, the integration is silently disabled for that session.
-
-### WIP Configuration
-
-```
-    "RelativeVolume": false,
+To edit settings interactively using a script:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Configure-AppSettings.ps1
 ```
 
-* **RelativeVolume** - Optional setting to treat volume changes as relative adjustments instead of absolute levels. It gets weird using this but might be useful, `true` to enable relative volume (e.g., +5% or -10%), `false` for absolute volume levels. Default is `false`.
+After updating `appsettings.json`, restart the service or tray app for changes to take effect.
 
+## Attribution
 
-### Reconnection
+The Cambridge Audio integration is a partial C# port of the following Python projects:
 
-The client automatically reconnects on disconnect using exponential backoff (default: 0.5 s initial, 30 s maximum), matching the Python aiostreammagic reconnect behaviour.
+- [aiostreammagic](https://github.com/noahhusby/aiostreammagic)
+- [stream_magic](https://github.com/sebk-666/stream_magic)
