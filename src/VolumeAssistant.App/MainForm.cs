@@ -60,6 +60,7 @@ internal sealed class MainForm : Form
     private CheckBox _useSourcePopupChk = null!;
     private Button _advancedEditBtn = null!;
     private TextBox _balanceTb = null!;
+    private CheckBox _applyBalanceOnStartupChk = null!;
 
     // ── Logs tab controls ─────────────────────────────────────────────────────
     private ListBox _logListBox = null!;
@@ -266,6 +267,7 @@ internal sealed class MainForm : Form
             {
                 _useSourcePopupChk.Checked = appOpts.UseSourcePopup;
                 _balanceTb.Text = appOpts.BalanceOffset.ToString(CultureInfo.InvariantCulture);
+                _applyBalanceOnStartupChk.Checked = appOpts.ApplyBalanceOnStartup;
             }
         }
         catch
@@ -331,6 +333,7 @@ internal sealed class MainForm : Form
                 appNode["BalanceOffset"] = bo;
             else
                 appNode.Remove("BalanceOffset");
+            appNode["ApplyBalanceOnStartup"] = _applyBalanceOnStartupChk.Checked;
             root[AppOptions.SectionName] = appNode;
 
             // Ensure AppData folder exists
@@ -438,8 +441,34 @@ internal sealed class MainForm : Form
         return Path.Combine(dir, "appsettings.json");
     }
 
-    private void AdvancedEdit_Click(object? sender, EventArgs e)
+    private void OpenSettingsFile_Click(object? sender, EventArgs e)
     {
+        var path = FindAppSettingsPath();
+        if (path.Contains("(not found)"))
+        {
+            MessageBox.Show(this,
+                "No appsettings.json file found. Save your configuration first to create it.",
+                "File Not Found", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this,
+                $"Failed to open file: {ex.Message}",
+                "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void AdvancedEdit_Click(object? sender, EventArgs e)    {
         // Determine source to load: prefer AppData, then app folder, else create new in AppData
         var appDataPath = GetAppDataSettingsPath();
         var appFolderPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
@@ -681,6 +710,7 @@ internal sealed class MainForm : Form
         _sourceNamesTb = new TextBox();
         _useSourcePopupChk = new CheckBox { Width = 20 };
         _balanceTb = new TextBox();
+        _applyBalanceOnStartupChk = new CheckBox { Width = 20 };
 
         AddConfigRow("Enable", _enableChk);
         AddConfigRow("Host", _hostTb);
@@ -697,6 +727,7 @@ internal sealed class MainForm : Form
         AddConfigRow("Source Switching", _sourceSwitchingChk);
         AddConfigRow("Source Names", _sourceNamesTb);
         AddConfigRow("Balance Offset", _balanceTb);
+        AddConfigRow("Apply Balance on Startup", _applyBalanceOnStartupChk);
         AddConfigRow("Show Source Popup", _useSourcePopupChk);
 
         // Separator
@@ -792,11 +823,22 @@ internal sealed class MainForm : Form
         {
             Left = 16,
             Top = y,
-            Width = 700,
+            Width = 580,
             Height = 40,
             AutoSize = false,
         };
         panel.Controls.Add(_appSettingsPathLabel);
+
+        var openFileBtn = new Button
+        {
+            Text = "Open File",
+            Left = 604,
+            Top = y + 8,
+            Width = 80,
+            Height = 26,
+        };
+        openFileBtn.Click += OpenSettingsFile_Click;
+        panel.Controls.Add(openFileBtn);
 
         page.Controls.Add(panel);
         return page;

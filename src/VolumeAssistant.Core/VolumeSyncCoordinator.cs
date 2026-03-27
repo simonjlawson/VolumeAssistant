@@ -37,6 +37,7 @@ public sealed class VolumeSyncCoordinator
     private bool _balanceActive;
     private readonly bool _adjustWindowsBalance;
     private readonly bool _adjustCambridgeAudioBalance;
+    private readonly bool _applyBalanceOnStartup;
 
     // Internal test seam: allow tests to set or get the syncer instance directly.
     internal CambridgeAudioSyncer? CambridgeSyncer
@@ -56,7 +57,8 @@ public sealed class VolumeSyncCoordinator
         MatterOptions matterOptions,
         float balanceOffset = 0f,
         bool adjustWindowsBalance = false,
-        bool adjustCambridgeAudioBalance = true)
+        bool adjustCambridgeAudioBalance = true,
+        bool applyBalanceOnStartup = false)
     {
         _audioController = audioController ?? throw new ArgumentNullException(nameof(audioController));
         _matterDevice = matterDevice ?? throw new ArgumentNullException(nameof(matterDevice));
@@ -69,6 +71,7 @@ public sealed class VolumeSyncCoordinator
         _balanceOffset = Math.Clamp(balanceOffset, -100f, 100f);
         _adjustWindowsBalance = adjustWindowsBalance;
         _adjustCambridgeAudioBalance = adjustCambridgeAudioBalance;
+        _applyBalanceOnStartup = applyBalanceOnStartup;
     }
 
     public Task StartAsync(CancellationToken stoppingToken)
@@ -90,6 +93,26 @@ public sealed class VolumeSyncCoordinator
 
         // Subscribe to Windows volume change events
         _audioController.VolumeChanged += OnWindowsVolumeChanged;
+
+        // Apply balance on startup if configured (Windows side)
+        if (_applyBalanceOnStartup && _balanceOffset != 0f)
+        {
+            _balanceActive = true;
+            if (_adjustWindowsBalance)
+            {
+                try
+                {
+                    _audioController.SetBalance(_balanceOffset);
+                    _logger.LogInformation(
+                        "Startup balance applied: {Offset:+0.#;-0.#;0}",
+                        _balanceOffset);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to apply Windows audio balance on startup.");
+                }
+            }
+        }
 
         // Subscribe to system power mode changes via reflection to avoid hard dependency
         if (_cambridgeAudio != null)
@@ -185,6 +208,15 @@ public sealed class VolumeSyncCoordinator
                         // audio_output is an optional parameter; use the new API to set it
                         await _cambridgeAudio.SetAudioOutputAsync(_cambridgeOptions.StartOutput!);
                         _logger.LogInformation($"Cambridge Audio Output Set - Output: {_cambridgeOptions.StartOutput}");
+                    }
+
+                    if (_applyBalanceOnStartup && _adjustCambridgeAudioBalance && _balanceOffset != 0f)
+                    {
+                        int cambridgeBalance = (int)Math.Round(_balanceOffset * 15f / 100f);
+                        await _cambridgeAudio.SetBalanceAsync(cambridgeBalance).ConfigureAwait(false);
+                        _logger.LogInformation(
+                            "Cambridge Audio startup balance set to {Balance}",
+                            cambridgeBalance);
                     }
                 }
                 catch (Exception ex)
