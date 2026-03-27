@@ -30,14 +30,14 @@ This integration is a partial C# port of the Python projects:
 
 ### App Install
 
+- Right click Save this link [install script](https://raw.githubusercontent.com/simonjlawson/VolumeAssistant/refs/heads/main/scripts/install-app.ps1)
 - Run Powershell as Administrator
-- Download [install script](https://raw.githubusercontent.com/simonjlawson/VolumeAssistant/refs/heads/main/scripts/install-app.ps1)
 - Execute ``` powershell -ExecutionPolicy Bypass -File .\install-app.ps1 ```
 
 ### Service Install
 
+- Right click Save this link [install script](https://raw.githubusercontent.com/simonjlawson/VolumeAssistant/refs/heads/main/scripts/install.ps1)
 - Run Powershell as Administrator
-- Download [install script](https://raw.githubusercontent.com/simonjlawson/VolumeAssistant/refs/heads/main/scripts/install.ps1)
 - Execute ``` powershell -ExecutionPolicy Bypass -File .\scripts\install-service.ps1 ```
 
 Notes
