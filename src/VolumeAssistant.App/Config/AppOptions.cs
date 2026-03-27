@@ -27,4 +27,12 @@ internal sealed class AppOptions
     /// Defaults to false.
     /// </summary>
     public bool AdjustWindowsBalance { get; set; } = false;
+
+    /// <summary>
+    /// When true, the balance offset in <see cref="BalanceOffset"/> is applied immediately
+    /// on startup (as if the balance toggle is already active), so the configured balance
+    /// is the default face rather than requiring a manual key press.
+    /// Defaults to false.
+    /// </summary>
+    public bool ApplyBalanceOnStartup { get; set; } = false;
 }

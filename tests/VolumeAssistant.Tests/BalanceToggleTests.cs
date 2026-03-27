@@ -68,7 +68,8 @@ namespace VolumeAssistant.Tests
             float balanceOffset = -20f,
             bool adjustWindowsBalance = false,
             bool adjustCambridgeAudioBalance = true,
-            ICambridgeAudioClient? cambridgeAudio = null)
+            ICambridgeAudioClient? cambridgeAudio = null,
+            bool applyBalanceOnStartup = false)
         {
             var matterDevice = new MatterDevice();
             var matterServer = new MatterServer(matterDevice, NullLogger<MatterServer>.Instance);
@@ -84,7 +85,8 @@ namespace VolumeAssistant.Tests
                 new MatterOptions(),
                 balanceOffset,
                 adjustWindowsBalance,
-                adjustCambridgeAudioBalance);
+                adjustCambridgeAudioBalance,
+                applyBalanceOnStartup);
         }
 
         // ── Windows balance ───────────────────────────────────────────────────────
@@ -229,6 +231,77 @@ namespace VolumeAssistant.Tests
             await Task.Delay(50);
 
             Assert.Empty(cam.SetBalanceCalls);
+        }
+
+        // ── Apply balance on startup ──────────────────────────────────────────────
+
+        [Fact]
+        public async Task ApplyBalanceOnStartup_Windows_AppliesOffsetImmediately()
+        {
+            var audio = new TestAudioController();
+            var coordinator = CreateCoordinator(audio, -20f, adjustWindowsBalance: true,
+                adjustCambridgeAudioBalance: false, applyBalanceOnStartup: true);
+
+            await coordinator.StartAsync(CancellationToken.None);
+
+            Assert.Equal(-20f, audio.LastSetBalance);
+            Assert.Equal(1, audio.SetBalanceCallCount);
+        }
+
+        [Fact]
+        public async Task ApplyBalanceOnStartup_Disabled_DoesNotSetWindowsBalance()
+        {
+            var audio = new TestAudioController();
+            var coordinator = CreateCoordinator(audio, -20f, adjustWindowsBalance: true,
+                adjustCambridgeAudioBalance: false, applyBalanceOnStartup: false);
+
+            await coordinator.StartAsync(CancellationToken.None);
+
+            Assert.Equal(0, audio.SetBalanceCallCount);
+        }
+
+        [Fact]
+        public async Task ApplyBalanceOnStartup_Windows_ToggleThenPressResetsToCenter()
+        {
+            var audio = new TestAudioController();
+            var coordinator = CreateCoordinator(audio, -20f, adjustWindowsBalance: true,
+                adjustCambridgeAudioBalance: false, applyBalanceOnStartup: true);
+
+            await coordinator.StartAsync(CancellationToken.None);
+
+            // Startup sets _balanceActive=true; the toggle handler flips the current state,
+            // so the first key press deactivates balance and resets to centre (0).
+            coordinator.OnMediaKeyBalanceToggleRequestedInternal(null, EventArgs.Empty);
+
+            Assert.Equal(0f, audio.LastSetBalance);
+        }
+
+        [Fact]
+        public async Task ApplyBalanceOnStartup_CambridgeAudio_SendsMappedBalance()
+        {
+            var audio = new TestAudioController();
+            var cam = new TestCambridgeAudioClient { IsConnected = true };
+            var matterDevice = new MatterDevice();
+            var matterServer = new MatterServer(matterDevice, NullLogger<MatterServer>.Instance);
+            var mdns = new MdnsAdvertiser(matterDevice, NullLogger<MdnsAdvertiser>.Instance);
+            var coordinator = new VolumeSyncCoordinator(
+                audio,
+                matterDevice,
+                matterServer,
+                mdns,
+                NullLogger<VolumeSyncCoordinator>.Instance,
+                cambridgeAudio: cam,
+                new CambridgeAudioOptions(),
+                new MatterOptions(),
+                balanceOffset: -100f,
+                adjustWindowsBalance: false,
+                adjustCambridgeAudioBalance: true,
+                applyBalanceOnStartup: true);
+
+            await coordinator.StartAsync(CancellationToken.None);
+            await Task.Delay(100); // let the background Task.Run complete
+
+            Assert.Contains(-15, cam.SetBalanceCalls); // -100 * 15/100 = -15
         }
     }
 }
