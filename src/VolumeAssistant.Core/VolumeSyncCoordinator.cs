@@ -762,18 +762,46 @@ public sealed class VolumeSyncCoordinator
                     try
                     {
                         // When resuming from sleep the network or device may not be immediately
-                        // reachable. Wait for a short period for the Cambridge Audio client to
-                        // reconnect before attempting to send a power-on request.
+                        // reachable. Wait for the Cambridge Audio client to signal reconnection
+                        // via the ConnectionChanged event before attempting to send a power-on
+                        // request. Using the event avoids acting on a stale WebSocket that still
+                        // appears open but has not yet been detected as dead.
                         const int maxWaitMs = 30_000; // 30 seconds
-                        const int pollMs = 500;
-                        int waited = 0;
-                        while (!_cambridgeAudio.IsConnected && waited < maxWaitMs)
+                        bool connected;
+                        if (_cambridgeAudio.IsConnected)
                         {
-                            await Task.Delay(pollMs).ConfigureAwait(false);
-                            waited += pollMs;
+                            connected = true;
+                        }
+                        else
+                        {
+                            var reconnectedTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                            EventHandler<CambridgeAudioConnectionChangedEventArgs>? onConnChanged = null;
+                            onConnChanged = (_, connArgs) =>
+                            {
+                                if (connArgs.IsConnected)
+                                {
+                                    reconnectedTcs.TrySetResult(true);
+                                    _cambridgeAudio.ConnectionChanged -= onConnChanged!;
+                                }
+                            };
+                            _cambridgeAudio.ConnectionChanged += onConnChanged;
+
+                            // Re-check after subscribing to avoid a race where the connection was
+                            // established between the initial IsConnected check and the subscription.
+                            if (_cambridgeAudio.IsConnected)
+                            {
+                                _cambridgeAudio.ConnectionChanged -= onConnChanged;
+                                connected = true;
+                            }
+                            else
+                            {
+                                var completed = await Task.WhenAny(reconnectedTcs.Task, Task.Delay(maxWaitMs)).ConfigureAwait(false);
+                                _cambridgeAudio.ConnectionChanged -= onConnChanged;
+                                connected = completed == reconnectedTcs.Task;
+                            }
                         }
 
-                        if (_cambridgeAudio.IsConnected)
+                        if (connected)
                         {
                             await _cambridgeAudio.PowerOnAsync().ConfigureAwait(false);
                             _logger.LogInformation("Cambridge Audio powered on (System resume, StartPower enabled).");
