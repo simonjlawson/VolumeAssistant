@@ -17,9 +17,12 @@ namespace VolumeAssistant.Tests
         private sealed class RecordingCambridgeAudioClient : ICambridgeAudioClient
         {
             public event EventHandler<CambridgeAudioStateChangedEventArgs>? StateChanged { add { } remove { } }
-            public event EventHandler<CambridgeAudioConnectionChangedEventArgs>? ConnectionChanged { add { } remove { } }
+            public event EventHandler<CambridgeAudioConnectionChangedEventArgs>? ConnectionChanged;
 
             public bool IsConnected { get; set; } = true;
+
+            public void FireConnectionChanged(bool isConnected)
+                => ConnectionChanged?.Invoke(this, new CambridgeAudioConnectionChangedEventArgs(isConnected));
             public CambridgeAudioInfo? Info => null;
             public System.Collections.Generic.IReadOnlyList<CambridgeAudioSource> Sources => Array.Empty<CambridgeAudioSource>();
             public CambridgeAudioState? State => null;
@@ -143,6 +146,37 @@ namespace VolumeAssistant.Tests
             Thread.Sleep(50);
 
             Assert.Equal(1, cam.PowerOffCalls);
+        }
+
+        [Fact]
+        public async Task Resume_WaitsForConnectionChangedEvent_BeforePowerOn()
+        {
+            var audio = new TestAudioController();
+            var matterDevice = new MatterDevice();
+            var matterServer = new MatterServer(matterDevice, NullLogger<MatterServer>.Instance);
+            var mdns = new MdnsAdvertiser(matterDevice, NullLogger<MdnsAdvertiser>.Instance);
+
+            var cam = new RecordingCambridgeAudioClient { IsConnected = false };
+            var options = new CambridgeAudioOptions { StartPower = true };
+
+            var worker = new Worker(audio, matterDevice, matterServer, mdns, NullLogger<Worker>.Instance, cam, Options.Create(options));
+
+            var onPower = typeof(Worker).GetMethod("OnPowerModeChangedInternal", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+
+            var fakeArgs = new FakePowerEventArgs("Resume");
+            onPower.Invoke(worker, new object?[] { null, fakeArgs });
+
+            // Give the background task time to subscribe to ConnectionChanged
+            await Task.Delay(50);
+
+            // Simulate device reconnecting
+            cam.IsConnected = true;
+            cam.FireConnectionChanged(true);
+
+            // Allow background task to complete power-on
+            await Task.Delay(100);
+
+            Assert.Equal(1, cam.PowerOnCalls);
         }
     }
 }
