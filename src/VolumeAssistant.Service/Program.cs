@@ -94,6 +94,7 @@ builder.Services.AddSingleton<ICambridgeAudioClient>(sp =>
             ClosePower = opts.ClosePower,
             RelativeVolume = opts.RelativeVolume,
             MaxVolume = opts.MaxVolume,
+            HeadphonesOutput = opts.HeadphonesOutput,
         });
 
     try
