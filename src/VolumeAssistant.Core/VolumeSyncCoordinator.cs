@@ -39,6 +39,11 @@ public sealed class VolumeSyncCoordinator
     private readonly bool _adjustCambridgeAudioBalance;
     private readonly bool _applyBalanceOnStartup;
 
+    // Tracks whether the device is currently in headphones-output mode so that
+    // balance can be centred on plug-in and restored on plug-out.
+    private bool _headphonesModeActive;
+    private string _previousAudioOutput = string.Empty;
+
     // Internal test seam: allow tests to set or get the syncer instance directly.
     internal CambridgeAudioSyncer? CambridgeSyncer
     {
@@ -155,6 +160,7 @@ public sealed class VolumeSyncCoordinator
         if (_cambridgeAudio != null)
         {
             _cambridgeAudio.ConnectionChanged += OnCambridgeAudioConnectionChanged;
+            _cambridgeAudio.StateChanged += OnCambridgeAudioOutputChanged;
 
             // Create syncer for coalescing rapid Windows volume changes
             _cambridgeSyncer = new CambridgeAudioSyncer(_cambridgeAudio, _cambridgeOptions, _logger);
@@ -268,6 +274,7 @@ public sealed class VolumeSyncCoordinator
         if (_cambridgeAudio != null)
         {
             _cambridgeAudio.ConnectionChanged -= OnCambridgeAudioConnectionChanged;
+            _cambridgeAudio.StateChanged -= OnCambridgeAudioOutputChanged;
             if (_cambridgeSyncer != null)
             {
                 await _cambridgeSyncer.DisposeAsync().ConfigureAwait(false);
@@ -532,6 +539,63 @@ public sealed class VolumeSyncCoordinator
         _logger.LogInformation(
             "Cambridge Audio device connection state: {State}",
             e.IsConnected ? "Connected" : "Disconnected");
+    }
+
+    internal void OnCambridgeAudioOutputChanged(object? sender, CambridgeAudioStateChangedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(_cambridgeOptions.HeadphonesOutput)) return;
+        if (_cambridgeAudio == null) return;
+
+        var currentOutput = e.State.AudioOutput ?? string.Empty;
+        if (string.IsNullOrEmpty(currentOutput)) return;
+        if (string.Equals(currentOutput, _previousAudioOutput, StringComparison.OrdinalIgnoreCase)) return;
+
+        _previousAudioOutput = currentOutput;
+
+        bool isNowHeadphones = string.Equals(
+            currentOutput, _cambridgeOptions.HeadphonesOutput, StringComparison.OrdinalIgnoreCase);
+
+        if (isNowHeadphones && !_headphonesModeActive)
+        {
+            _headphonesModeActive = true;
+            _logger.LogInformation(
+                "Headphones detected (audio_output={Output}), centering Cambridge Audio balance.", currentOutput);
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _cambridgeAudio.SetBalanceAsync(0).ConfigureAwait(false);
+                    _logger.LogInformation("Cambridge Audio balance centred (0) for headphones.");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to centre Cambridge Audio balance for headphones.");
+                }
+            });
+        }
+        else if (!isNowHeadphones && _headphonesModeActive)
+        {
+            _headphonesModeActive = false;
+            int restoredBalance = _balanceActive ? (int)Math.Round(_balanceOffset * 15f / 100f) : 0;
+            _logger.LogInformation(
+                "Headphones removed (audio_output={Output}), restoring Cambridge Audio balance to {Balance}.",
+                currentOutput, restoredBalance);
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _cambridgeAudio.SetBalanceAsync(restoredBalance).ConfigureAwait(false);
+                    _logger.LogInformation(
+                        "Cambridge Audio balance restored to {Balance} after headphones removed.", restoredBalance);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to restore Cambridge Audio balance after headphones removed.");
+                }
+            });
+        }
     }
 
     internal void OnMediaKeyBalanceToggleRequestedInternal(object? sender, EventArgs e)

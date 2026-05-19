@@ -130,4 +130,12 @@ public sealed class CambridgeAudioOptions
     /// Set to false to leave the Cambridge Audio device balance unchanged when toggling.
     /// </summary>
     public bool AdjustCambridgeAudioBalance { get; set; } = true;
+
+    /// <summary>
+    /// The value of the device's <c>audio_output</c> field that indicates headphones are active
+    /// (e.g. "headphones"). When the device reports this output, VolumeAssistant will automatically
+    /// set the Cambridge Audio balance to centre (0). When the output changes back the previously
+    /// active balance is restored. Set to null or empty to disable this behaviour.
+    /// </summary>
+    public string? HeadphonesOutput { get; set; } = "headphones";
 }

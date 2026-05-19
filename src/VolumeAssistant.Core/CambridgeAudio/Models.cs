@@ -91,6 +91,13 @@ public sealed class CambridgeAudioState
     [JsonPropertyName("pre_amp_state")]
     [JsonConverter(typeof(FlexibleBooleanConverter))]
     public bool PreAmpState { get; set; }
+
+    /// <summary>
+    /// Current audio output selected by the device (e.g. "speakers", "headphones").
+    /// Null or empty when not reported in this update.
+    /// </summary>
+    [JsonPropertyName("audio_output")]
+    public string? AudioOutput { get; set; }
 }
 
 /// <summary>
