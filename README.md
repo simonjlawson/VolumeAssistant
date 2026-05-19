@@ -19,6 +19,7 @@ A Windows service/Tray App that can expose the Windows master volume as a **Matt
   - Windows volume controls Amp volume (with configurable maximum)
   - Mute, Play/Pause, Next, Previous keys sent to device
   - Shift+SCRLK cycles Amp source; Shift+PRTSCR toggles Amp L/R balance
+  - Plugging in Headphones centers balance, unplugging restores previous balance
 
 For architecture details, development setup, protocol internals, and Cambridge Audio technical information see [TECHNICAL.md](TECHNICAL.md).
 
