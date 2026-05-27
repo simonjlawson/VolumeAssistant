@@ -11,7 +11,7 @@ on:
         required: false
         default: 'Release'
       version:
-        description: 'Optional version override (if empty the workflow will use UTC datetime)'
+        description: 'Optional version override (if empty the workflow will use UTC date)'
         required: false
 
 jobs:
@@ -36,10 +36,9 @@ jobs:
             echo "version=$version" >> $GITHUB_OUTPUT
             echo "version_short=$version_short" >> $GITHUB_OUTPUT
           else
-            # Use UTC datetime as SemVer-like full: YYYY.MM.DD.HHMMSS
-            version=$(date -u +"%Y.%m.%d.%H%M%S")
-            # Use short version as major.minor.patch (YYYY.MM.DD) so AssemblyVersion parts stay small
-            version_short=$(date -u +"%Y.%m.%d")
+            # Use UTC date as version: YYYY.MM.DD
+            version=$(date -u +"%Y.%m.%d")
+            version_short=$version
             echo "version=$version" >> $GITHUB_OUTPUT
             echo "version_short=$version_short" >> $GITHUB_OUTPUT
           fi
