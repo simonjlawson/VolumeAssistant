@@ -138,4 +138,14 @@ public sealed class CambridgeAudioOptions
     /// active balance is restored. Set to null or empty to disable this behaviour.
     /// </summary>
     public string? HeadphonesOutput { get; set; } = "headphones";
+
+    /// <summary>
+    /// Comma-separated list of default volumes (0-100) to set when switching to each source in
+    /// <see cref="SourceSwitchingNames"/>. Each position corresponds to the same position in
+    /// SourceSwitchingNames. Leave a position empty (,, or ,50,) to skip setting volume for that source.
+    /// Example for SourceSwitchingNames="PC,Airplay,Piano": SourceDefaultVolumes="20,,50" means
+    /// set volume to 20 when switching to PC, leave unchanged for Airplay, and set to 50 for Piano.
+    /// Defaults to null (no automatic volume changes on source switch).
+    /// </summary>
+    public string? SourceDefaultVolumes { get; set; }
 }
