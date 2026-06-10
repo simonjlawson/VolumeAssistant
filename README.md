@@ -88,10 +88,13 @@ Specify `Host` to connect to a particular device directly (skipping discovery):
     "StartVolume": "10",
     "StartSourceName": "PC",
     "StartOutput": null,
-    "MaxVolume": "30",
+    "MaxVolume": "50",
     "MediaKeysEnabled": false,
     "SourceSwitchingEnabled": false,
     "SourceSwitchingNames": "PC,AirPlay,Internet Radio"
+    "SourceDefaultVolumes": "20,40,35",
+    "SourceDefaultBalances": "-9,0,0",
+    "AdjustCambridgeAudioBalance": true
   },
   "App": {
     "UseSourcePopup": true,
@@ -113,6 +116,8 @@ Specify `Host` to connect to a particular device directly (skipping discovery):
 | **MediaKeysEnabled** | When `true`, intercepts Windows media key presses (Play/Pause, Next Track, Previous Track) and forwards them to the Cambridge Audio device. Default is `false`. |
 | **SourceSwitchingEnabled** | When `true`, Shift+SCRLK cycles through the sources listed in `SourceSwitchingNames`. Default is `false`. |
 | **SourceSwitchingNames** | Comma-separated list of source names to cycle through when `SourceSwitchingEnabled` is `true`. Each name must match a source name on the device (case-insensitive). Example: `"PC,TV,Spotify"`. |
+| **SourceDefaultVolumes** | Comma-separated list of volumes to cycle with switching names. Example: `"20,,50"` PC=20% TV=NoChange Spotify=50%. |
+| **SourceDefaultBalances** | Comma-separated list of balances to cycle with switching names. Example: `"-15,0,15"` PC=AllRight TV=Centered Spotify=AllLeft. |
 | **BalanceOffset** | An int from -100 to +100 controlling the L/R balance (-100 = 100% Left). Shift+PrtScr toggles this balance. |
 
 To edit settings interactively using a script:
