@@ -539,6 +539,7 @@ public sealed class VolumeSyncCoordinator
                             if (source != null)
                             {
                                 await TryApplyDefaultVolumeAsync(source.Name).ConfigureAwait(false);
+                                await TryApplyDefaultBalanceAsync(source.Name).ConfigureAwait(false);
                             }
                         }
                     }
@@ -805,6 +806,55 @@ public sealed class VolumeSyncCoordinator
         return false;
     }
 
+    private async Task<bool> TryApplyDefaultBalanceAsync(string targetSourceName)
+    {
+        try
+        {
+            var namesRaw = _cambridgeOptions.SourceSwitchingNames;
+            var balancesRaw = _cambridgeOptions.SourceDefaultBalances;
+
+            if (string.IsNullOrWhiteSpace(namesRaw) || string.IsNullOrWhiteSpace(balancesRaw))
+                return false;
+
+            var configuredNames = namesRaw
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var balanceStrings = balancesRaw.Split(',');
+
+            // Find the index of the target source name
+            int targetIndex = Array.FindIndex(configuredNames, n =>
+                n.Equals(targetSourceName, StringComparison.OrdinalIgnoreCase));
+
+            if (targetIndex < 0 || targetIndex >= balanceStrings.Length)
+                return false;
+
+            // Check if the balance at this index is set (not empty)
+            string balanceStr = balanceStrings[targetIndex].Trim();
+            if (string.IsNullOrEmpty(balanceStr))
+                return false;
+
+            if (!int.TryParse(balanceStr, out var balance))
+                return false;
+
+            // Clamp balance to valid range (-15 to +15)
+            balance = Math.Max(-15, Math.Min(15, balance));
+
+            if (_cambridgeAudio != null && _cambridgeAudio.IsConnected)
+            {
+                await _cambridgeAudio.SetBalanceAsync(balance).ConfigureAwait(false);
+                _logger.LogInformation(
+                    "Applied default balance {Balance} for source '{Source}'",
+                    balance, targetSourceName);
+                return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to apply default balance for source switching.");
+        }
+
+        return false;
+    }
+
     private void OnMediaKeyNextTrack(object? sender, EventArgs e)
     {
         if (_cambridgeAudio == null || !_cambridgeAudio.IsConnected) return;
@@ -898,6 +948,8 @@ public sealed class VolumeSyncCoordinator
 
             // Apply default volume for the new source if configured
             await TryApplyDefaultVolumeAsync(targetName).ConfigureAwait(false);
+            // Apply default balance for the new source if configured
+            await TryApplyDefaultBalanceAsync(targetName).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

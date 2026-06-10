@@ -56,6 +56,7 @@ internal sealed class MainForm : Form
     private CheckBox _sourceSwitchingChk = null!;
     private TextBox _sourceNamesTb = null!;
     private TextBox _sourceDefaultVolumesTb = null!;
+    private TextBox _sourceDefaultBalancesTb = null!;
     private CheckBox _runAtStartupChk = null!;
     private Label _appSettingsPathLabel = null!;
     private CheckBox _useSourcePopupChk = null!;
@@ -260,6 +261,7 @@ internal sealed class MainForm : Form
         _sourceSwitchingChk.Checked = opts.SourceSwitchingEnabled;
         _sourceNamesTb.Text = opts.SourceSwitchingNames ?? string.Empty;
         _sourceDefaultVolumesTb.Text = opts.SourceDefaultVolumes ?? string.Empty;
+        _sourceDefaultBalancesTb.Text = opts.SourceDefaultBalances ?? string.Empty;
 
         // App-level options
         try
@@ -326,6 +328,7 @@ internal sealed class MainForm : Form
             caNode["SourceSwitchingEnabled"] = _sourceSwitchingChk.Checked;
             caNode["SourceSwitchingNames"] = _sourceNamesTb.Text.Trim();
             caNode["SourceDefaultVolumes"] = _sourceDefaultVolumesTb.Text.Trim();
+            caNode["SourceDefaultBalances"] = _sourceDefaultBalancesTb.Text.Trim();
 
             root[CambridgeAudioOptions.SectionName] = caNode;
 
@@ -712,6 +715,7 @@ internal sealed class MainForm : Form
         _sourceSwitchingChk = new CheckBox { Width = 20 };
         _sourceNamesTb = new TextBox();
         _sourceDefaultVolumesTb = new TextBox();
+        _sourceDefaultBalancesTb = new TextBox();
         _useSourcePopupChk = new CheckBox { Width = 20 };
         _balanceTb = new TextBox();
         _applyBalanceOnStartupChk = new CheckBox { Width = 20 };
@@ -731,6 +735,7 @@ internal sealed class MainForm : Form
         AddConfigRow("Source Switching", _sourceSwitchingChk);
         AddConfigRow("Source Names", _sourceNamesTb);
         AddConfigRow("Source Default Volumes", _sourceDefaultVolumesTb);
+        AddConfigRow("Source Default Balances", _sourceDefaultBalancesTb);
         AddConfigRow("Balance Offset", _balanceTb);
         AddConfigRow("Apply Balance on Startup", _applyBalanceOnStartupChk);
         AddConfigRow("Show Source Popup", _useSourcePopupChk);

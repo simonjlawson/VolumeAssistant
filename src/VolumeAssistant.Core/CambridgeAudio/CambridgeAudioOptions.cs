@@ -148,4 +148,14 @@ public sealed class CambridgeAudioOptions
     /// Defaults to null (no automatic volume changes on source switch).
     /// </summary>
     public string? SourceDefaultVolumes { get; set; }
+
+    /// <summary>
+    /// Comma-separated list of default stereo balance values (-15 to +15) to set when switching to each source in
+    /// <see cref="SourceSwitchingNames"/>. Each position corresponds to the same position in
+    /// SourceSwitchingNames. Leave a position empty (,, or ,5,) to skip setting balance for that source.
+    /// Example for SourceSwitchingNames="PC,Airplay,Piano": SourceDefaultBalances="-5,,0" means
+    /// set balance to -5 (slightly left) when switching to PC, leave unchanged for Airplay, and set to 0 (centre) for Piano.
+    /// Valid range is -15 (full left) to +15 (full right). Defaults to null (no automatic balance changes on source switch).
+    /// </summary>
+    public string? SourceDefaultBalances { get; set; }
 }
