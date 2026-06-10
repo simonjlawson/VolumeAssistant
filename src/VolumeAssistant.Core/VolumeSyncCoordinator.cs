@@ -545,7 +545,7 @@ public sealed class VolumeSyncCoordinator
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogDebug(ex, "Failed to apply default volume on source change detection.");
+                        _logger.LogDebug(ex, "Failed to apply default volume or balance on source change detection.");
                     }
                 });
             }

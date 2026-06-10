@@ -61,6 +61,7 @@ namespace VolumeAssistant.Tests
 
             public List<string> SetSourceIds { get; } = new List<string>();
             public List<int> SetVolumes { get; } = new List<int>();
+            public List<int> SetBalances { get; } = new List<int>();
             public int PlayPauseCalls { get; private set; }
             public int NextTrackCalls { get; private set; }
             public int PreviousTrackCalls { get; private set; }
@@ -84,7 +85,7 @@ namespace VolumeAssistant.Tests
             public Task PlayPauseAsync(CancellationToken ct = default) { PlayPauseCalls++; return Task.CompletedTask; }
             public Task NextTrackAsync(CancellationToken ct = default) { NextTrackCalls++; return Task.CompletedTask; }
             public Task PreviousTrackAsync(CancellationToken ct = default) { PreviousTrackCalls++; return Task.CompletedTask; }
-            public Task SetBalanceAsync(int balance, CancellationToken ct = default) => Task.CompletedTask;
+            public Task SetBalanceAsync(int balance, CancellationToken ct = default) { SetBalances.Add(balance); return Task.CompletedTask; }
         }
 
         private sealed class NopAudioController : IAudioController
@@ -468,6 +469,22 @@ namespace VolumeAssistant.Tests
             Assert.Equal("20,,50", options.SourceDefaultVolumes);
         }
 
+        // ── Default Balance Configuration ────────────────────────────────────────
+
+        [Fact]
+        public void SourceDefaultBalances_DefaultsToNull()
+        {
+            var options = new CambridgeAudioOptions();
+            Assert.Null(options.SourceDefaultBalances);
+        }
+
+        [Fact]
+        public void SourceDefaultBalances_CanBeConfigured()
+        {
+            var options = new CambridgeAudioOptions { SourceDefaultBalances = "-5,,0" };
+            Assert.Equal("-5,,0", options.SourceDefaultBalances);
+        }
+
         [Fact]
         public void CycleSourceAsync_AppliesDefaultVolumeWhenConfigured()
         {
@@ -493,6 +510,33 @@ namespace VolumeAssistant.Tests
             Assert.Equal("tv_arc", cam.SetSourceIds[0]);
             Assert.Single(cam.SetVolumes);
             Assert.Equal(50, cam.SetVolumes[0]);
+        }
+
+        [Fact]
+        public void CycleSourceAsync_AppliesDefaultBalanceWhenConfigured()
+        {
+            var options = new CambridgeAudioOptions
+            {
+                SourceSwitchingEnabled = true,
+                SourceSwitchingNames = "PC,TV,Spotify",
+                SourceDefaultBalances = "-5,5,0"  // PC: -5, TV: 5, Spotify: 0
+            };
+            var (worker, cam) = CreateWorkerWithOptions(options);
+            cam.Sources = MakeSources(("pc_usb", "PC"), ("tv_arc", "TV"), ("spotify", "Spotify"));
+            cam.State = new CambridgeAudioState { Source = "pc_usb" };
+
+            var handler = typeof(Worker).GetMethod(
+                "OnMediaKeySourceSwitchRequested",
+                BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+            handler.Invoke(worker, new object?[] { null, EventArgs.Empty });
+            Thread.Sleep(200);
+
+            // Should switch to TV and apply default balance 5
+            Assert.Single(cam.SetSourceIds);
+            Assert.Equal("tv_arc", cam.SetSourceIds[0]);
+            Assert.Single(cam.SetBalances);
+            Assert.Equal(5, cam.SetBalances[0]);
         }
 
         [Fact]
@@ -626,6 +670,85 @@ namespace VolumeAssistant.Tests
             Assert.Equal("pc_usb", cam.SetSourceIds[0]);
             Assert.Single(cam.SetVolumes);
             Assert.Equal(35, cam.SetVolumes[0]);
+        }
+
+        [Fact]
+        public void CycleSourceAsync_SkipsBalanceWhenEmpty()
+        {
+            var options = new CambridgeAudioOptions
+            {
+                SourceSwitchingEnabled = true,
+                SourceSwitchingNames = "PC,TV,Spotify",
+                SourceDefaultBalances = "-5,,0"  // TV balance is empty (skipped)
+            };
+            var (worker, cam) = CreateWorkerWithOptions(options);
+            cam.Sources = MakeSources(("pc_usb", "PC"), ("tv_arc", "TV"), ("spotify", "Spotify"));
+            cam.State = new CambridgeAudioState { Source = "pc_usb" };
+
+            var handler = typeof(Worker).GetMethod(
+                "OnMediaKeySourceSwitchRequested",
+                BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+            handler.Invoke(worker, new object?[] { null, EventArgs.Empty });
+            Thread.Sleep(200);
+
+            // Should switch to TV but NOT apply any balance
+            Assert.Single(cam.SetSourceIds);
+            Assert.Equal("tv_arc", cam.SetSourceIds[0]);
+            Assert.Empty(cam.SetBalances);  // No balance set for TV
+        }
+
+        [Fact]
+        public void CycleSourceAsync_ClampsBalanceToValidRange()
+        {
+            var options = new CambridgeAudioOptions
+            {
+                SourceSwitchingEnabled = true,
+                SourceSwitchingNames = "PC,TV",
+                SourceDefaultBalances = "20,-20"  // Invalid balances outside -15..+15 range
+            };
+            var (worker, cam) = CreateWorkerWithOptions(options);
+            cam.Sources = MakeSources(("pc_usb", "PC"), ("tv_arc", "TV"));
+            cam.State = new CambridgeAudioState { Source = "tv_arc" };
+
+            var handler = typeof(Worker).GetMethod(
+                "OnMediaKeySourceSwitchRequested",
+                BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+            handler.Invoke(worker, new object?[] { null, EventArgs.Empty });
+            Thread.Sleep(200);
+
+            // Should switch to PC and clamp balance to 15
+            Assert.Single(cam.SetSourceIds);
+            Assert.Equal("pc_usb", cam.SetSourceIds[0]);
+            Assert.Single(cam.SetBalances);
+            Assert.Equal(15, cam.SetBalances[0]);  // Clamped from 20 to 15
+        }
+
+        [Fact]
+        public void CycleSourceAsync_NoBalanceWhenDefaultBalancesNotConfigured()
+        {
+            var options = new CambridgeAudioOptions
+            {
+                SourceSwitchingEnabled = true,
+                SourceSwitchingNames = "PC,TV",
+                SourceDefaultBalances = null  // Not configured
+            };
+            var (worker, cam) = CreateWorkerWithOptions(options);
+            cam.Sources = MakeSources(("pc_usb", "PC"), ("tv_arc", "TV"));
+            cam.State = new CambridgeAudioState { Source = "pc_usb" };
+
+            var handler = typeof(Worker).GetMethod(
+                "OnMediaKeySourceSwitchRequested",
+                BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+            handler.Invoke(worker, new object?[] { null, EventArgs.Empty });
+            Thread.Sleep(200);
+
+            // Should switch to TV but NOT apply any balance
+            Assert.Single(cam.SetSourceIds);
+            Assert.Equal("tv_arc", cam.SetSourceIds[0]);
+            Assert.Empty(cam.SetBalances);
         }
     }
 }
