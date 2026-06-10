@@ -60,6 +60,7 @@ namespace VolumeAssistant.Tests
             public CambridgeAudioState? State { get; set; }
 
             public List<string> SetSourceIds { get; } = new List<string>();
+            public List<int> SetVolumes { get; } = new List<int>();
             public int PlayPauseCalls { get; private set; }
             public int NextTrackCalls { get; private set; }
             public int PreviousTrackCalls { get; private set; }
@@ -73,7 +74,7 @@ namespace VolumeAssistant.Tests
                 => Task.FromResult(Sources);
             public Task<CambridgeAudioState> GetStateAsync(CancellationToken ct = default) => Task.FromResult(new CambridgeAudioState());
 
-            public Task SetVolumeAsync(int v, CancellationToken ct = default) => Task.CompletedTask;
+            public Task SetVolumeAsync(int v, CancellationToken ct = default) { SetVolumes.Add(v); return Task.CompletedTask; }
             public Task SetMuteAsync(bool m, CancellationToken ct = default) => Task.CompletedTask;
             public Task SetSourceAsync(string s, CancellationToken ct = default) { SetSourceIds.Add(s); return Task.CompletedTask; }
             public Task SetAudioOutputAsync(string o, CancellationToken ct = default) => Task.CompletedTask;
@@ -449,6 +450,182 @@ namespace VolumeAssistant.Tests
 
             Assert.Null(exception);
             Assert.Empty(cam.SetSourceIds);
+        }
+
+        // ── Default Volume Configuration ─────────────────────────────────────────
+
+        [Fact]
+        public void SourceDefaultVolumes_DefaultsToNull()
+        {
+            var options = new CambridgeAudioOptions();
+            Assert.Null(options.SourceDefaultVolumes);
+        }
+
+        [Fact]
+        public void SourceDefaultVolumes_CanBeConfigured()
+        {
+            var options = new CambridgeAudioOptions { SourceDefaultVolumes = "20,,50" };
+            Assert.Equal("20,,50", options.SourceDefaultVolumes);
+        }
+
+        [Fact]
+        public void CycleSourceAsync_AppliesDefaultVolumeWhenConfigured()
+        {
+            var options = new CambridgeAudioOptions
+            {
+                SourceSwitchingEnabled = true,
+                SourceSwitchingNames = "PC,TV,Spotify",
+                SourceDefaultVolumes = "25,50,75"
+            };
+            var (worker, cam) = CreateWorkerWithOptions(options);
+            cam.Sources = MakeSources(("pc_usb", "PC"), ("tv_arc", "TV"), ("spotify", "Spotify"));
+            cam.State = new CambridgeAudioState { Source = "pc_usb" };
+
+            var handler = typeof(Worker).GetMethod(
+                "OnMediaKeySourceSwitchRequested",
+                BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+            handler.Invoke(worker, new object?[] { null, EventArgs.Empty });
+            Thread.Sleep(200);
+
+            // Should switch to TV and apply default volume 50
+            Assert.Single(cam.SetSourceIds);
+            Assert.Equal("tv_arc", cam.SetSourceIds[0]);
+            Assert.Single(cam.SetVolumes);
+            Assert.Equal(50, cam.SetVolumes[0]);
+        }
+
+        [Fact]
+        public void CycleSourceAsync_SkipsVolumeWhenEmpty()
+        {
+            var options = new CambridgeAudioOptions
+            {
+                SourceSwitchingEnabled = true,
+                SourceSwitchingNames = "PC,TV,Spotify",
+                SourceDefaultVolumes = "25,,75"  // TV volume is empty (skipped)
+            };
+            var (worker, cam) = CreateWorkerWithOptions(options);
+            cam.Sources = MakeSources(("pc_usb", "PC"), ("tv_arc", "TV"), ("spotify", "Spotify"));
+            cam.State = new CambridgeAudioState { Source = "pc_usb" };
+
+            var handler = typeof(Worker).GetMethod(
+                "OnMediaKeySourceSwitchRequested",
+                BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+            handler.Invoke(worker, new object?[] { null, EventArgs.Empty });
+            Thread.Sleep(200);
+
+            // Should switch to TV but NOT apply any volume
+            Assert.Single(cam.SetSourceIds);
+            Assert.Equal("tv_arc", cam.SetSourceIds[0]);
+            Assert.Empty(cam.SetVolumes);  // No volume set for TV
+        }
+
+        [Fact]
+        public void CycleSourceAsync_ClampsVolumeToValidRange()
+        {
+            var options = new CambridgeAudioOptions
+            {
+                SourceSwitchingEnabled = true,
+                SourceSwitchingNames = "PC,TV",
+                SourceDefaultVolumes = "150,"  // Invalid volume > 100
+            };
+            var (worker, cam) = CreateWorkerWithOptions(options);
+            cam.Sources = MakeSources(("pc_usb", "PC"), ("tv_arc", "TV"));
+            cam.State = new CambridgeAudioState { Source = "tv_arc" };
+
+            var handler = typeof(Worker).GetMethod(
+                "OnMediaKeySourceSwitchRequested",
+                BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+            handler.Invoke(worker, new object?[] { null, EventArgs.Empty });
+            Thread.Sleep(200);
+
+            // Should switch to PC and clamp volume to 100
+            Assert.Single(cam.SetSourceIds);
+            Assert.Equal("pc_usb", cam.SetSourceIds[0]);
+            Assert.Single(cam.SetVolumes);
+            Assert.Equal(100, cam.SetVolumes[0]);  // Clamped from 150 to 100
+        }
+
+        [Fact]
+        public void CycleSourceAsync_NoVolumeWhenDefaultVolumesNotConfigured()
+        {
+            var options = new CambridgeAudioOptions
+            {
+                SourceSwitchingEnabled = true,
+                SourceSwitchingNames = "PC,TV",
+                SourceDefaultVolumes = null  // Not configured
+            };
+            var (worker, cam) = CreateWorkerWithOptions(options);
+            cam.Sources = MakeSources(("pc_usb", "PC"), ("tv_arc", "TV"));
+            cam.State = new CambridgeAudioState { Source = "pc_usb" };
+
+            var handler = typeof(Worker).GetMethod(
+                "OnMediaKeySourceSwitchRequested",
+                BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+            handler.Invoke(worker, new object?[] { null, EventArgs.Empty });
+            Thread.Sleep(200);
+
+            // Should switch to TV but NOT apply any volume
+            Assert.Single(cam.SetSourceIds);
+            Assert.Equal("tv_arc", cam.SetSourceIds[0]);
+            Assert.Empty(cam.SetVolumes);
+        }
+
+        [Fact]
+        public void CycleSourceAsync_AppliesCorrectVolumeForLastSource()
+        {
+            var options = new CambridgeAudioOptions
+            {
+                SourceSwitchingEnabled = true,
+                SourceSwitchingNames = "PC,TV,Spotify",
+                SourceDefaultVolumes = "20,40,80"
+            };
+            var (worker, cam) = CreateWorkerWithOptions(options);
+            cam.Sources = MakeSources(("pc_usb", "PC"), ("tv_arc", "TV"), ("spotify", "Spotify"));
+            cam.State = new CambridgeAudioState { Source = "tv_arc" };
+
+            var handler = typeof(Worker).GetMethod(
+                "OnMediaKeySourceSwitchRequested",
+                BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+            handler.Invoke(worker, new object?[] { null, EventArgs.Empty });
+            Thread.Sleep(200);
+
+            // Should switch to Spotify and apply default volume 80
+            Assert.Single(cam.SetSourceIds);
+            Assert.Equal("spotify", cam.SetSourceIds[0]);
+            Assert.Single(cam.SetVolumes);
+            Assert.Equal(80, cam.SetVolumes[0]);
+        }
+
+        [Fact]
+        public void CycleSourceAsync_WrapsAroundAndAppliesDefaultVolumeToFirst()
+        {
+            var options = new CambridgeAudioOptions
+            {
+                SourceSwitchingEnabled = true,
+                SourceSwitchingNames = "PC,TV",
+                SourceDefaultVolumes = "35,65"
+            };
+            var (worker, cam) = CreateWorkerWithOptions(options);
+            cam.Sources = MakeSources(("pc_usb", "PC"), ("tv_arc", "TV"));
+            cam.State = new CambridgeAudioState { Source = "tv_arc" };  // Wrap around to PC
+
+            var handler = typeof(Worker).GetMethod(
+                "OnMediaKeySourceSwitchRequested",
+                BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+            handler.Invoke(worker, new object?[] { null, EventArgs.Empty });
+            Thread.Sleep(200);
+
+            // Should wrap to PC and apply default volume 35
+            Assert.Single(cam.SetSourceIds);
+            Assert.Equal("pc_usb", cam.SetSourceIds[0]);
+            Assert.Single(cam.SetVolumes);
+            Assert.Equal(35, cam.SetVolumes[0]);
         }
     }
 }
