@@ -1,13 +1,11 @@
 # VolumeAssistant
+An app to allow a Cambridge Audio device to sync it's volume to Windows volume changes, turn off and on with the PC, switch Source and Balance with hotkeys, respond to the Media keys.
 
 ## Summary
-
 Directly syncs Windows volume with external Matter devices and integrates a Cambridge Audio StreamMagic device with the PC.
-
 A Windows service/Tray App that can expose the Windows master volume as a **Matter** smart home device on the local network for other devices to match. Connects to Cambridge Audio StreamMagic devices and directly syncs Windows volume. A Home Assistant, Google Home, or Apple Home controller can discover, commission, and control the Windows PC volume as if it were a dimmable light — where the *brightness* (level 0–254) maps directly to *volume* (0–100%).
 
 ## Features
-
 - **Windows Service** (`VolumeAssistant.Service`) – runs in the background without a UI, starts automatically with Windows, limited to volume handling, no key presses can be intercepted.
 - **System Tray App** (`VolumeAssistant.App`) – a lightweight **Native AOT** Forms app able to intercept media keys and Shift+SCRLK for source switching.
 - **Real-time volume sync** – whenever the master volume changes in Windows, the change is immediately reported to all subscribed Matter controllers.
@@ -27,13 +25,11 @@ For architecture details, development setup, protocol internals, and Cambridge A
 ## Installation
 
 ### App Install
-
 - Right click Save this link [install script](https://raw.githubusercontent.com/simonjlawson/VolumeAssistant/refs/heads/main/scripts/install-app.ps1)
 - Run Powershell as Administrator
 - Execute ``` powershell -ExecutionPolicy Bypass -File .\install-app.ps1 ```
 
 ### Service Install
-
 - Right click Save this link [install script](https://raw.githubusercontent.com/simonjlawson/VolumeAssistant/refs/heads/main/scripts/install.ps1)
 - Run Powershell as Administrator
 - Execute ``` powershell -ExecutionPolicy Bypass -File .\scripts\install-service.ps1 ```
@@ -43,7 +39,6 @@ Notes
 - The service installer registers a Windows service named `VolumeAssistantService` that runs the framework-dependent `VolumeAssistant.Service.dll` with the system dotnet. For self-contained deployments adjust the script to point to the executable.
 
 ### Manual install
-
 If you prefer to publish and install manually:
 
 ```powershell
@@ -59,7 +54,6 @@ sc.exe start VolumeAssistant
 ```
 
 ## Configuration
-
 VolumeAssistant is configured via `appsettings.json`, located in the install directory.
 
 Enable Cambridge Audio integration with `CambridgeAudio:Enable`. If `Host` is left empty, the service will automatically discover StreamMagic devices on your local network at startup using SSDP.
@@ -129,7 +123,6 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Configure-AppSettings.ps1
 After updating `appsettings.json`, restart the service or tray app for changes to take effect.
 
 ## Attribution
-
 The Cambridge Audio integration is a partial C# port of the following Python projects:
 
 - [aiostreammagic](https://github.com/noahhusby/aiostreammagic)
