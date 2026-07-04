@@ -1,6 +1,8 @@
 # VolumeAssistant
 Cambridge Audio Windows integration for StreamMagic devices: sync Windows volume, power, source switching, balance, and media keys from a native Windows service and tray app.
 
+<img width="846" height="453" alt="image" src="https://github.com/user-attachments/assets/a43c626d-47a6-459a-b84f-aa6a3e332827" />
+
 ## Summary
 VolumeAssistant is a Windows service and tray app for Cambridge Audio StreamMagic integration on Windows 10/11.
 It directly syncs Windows volume with Cambridge Audio devices and can expose the PC volume as a **Matter** smart home device on the local network.
@@ -22,6 +24,8 @@ Home Assistant, Google Home, or Apple Home can discover, commission, and control
   - Plugging in Headphones centers balance, unplugging restores previous balance
 
 For architecture details, development setup, protocol internals, and Cambridge Audio technical information see [TECHNICAL.md](TECHNICAL.md).
+
+<img width="939" height="403" alt="image" src="https://github.com/user-attachments/assets/ec65f49d-077a-465f-9b25-fa8d9523782c" />
 
 ## Installation
 
