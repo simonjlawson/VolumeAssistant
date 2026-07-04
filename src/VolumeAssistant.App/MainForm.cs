@@ -28,6 +28,18 @@ internal sealed class MainForm : Form
 
     // ── Theme (use centralized Theme class) ───────────────────────────────────
 
+    // ── Home tab controls ────────────────────────────────────────────────────
+    private Label _homeConnectionStatusText = null!;
+    private Label _homeDeviceNameText = null!;
+    private Label _homeDeviceModelText = null!;
+    private Label _homeWinVolumeText = null!;
+    private Label _homeWinBalanceText = null!;
+    private Label _homeWinMutedText = null!;
+    private Label _homeDeviceVolumeText = null!;
+    private Label _homeDeviceSourceText = null!;
+    private Label _homeDeviceOutputText = null!;
+    private Label _homeDevicePowerText = null!;
+
     // ── Connection tab controls ───────────────────────────────────────────────
     private Label _caStatusText = null!;
     private Label _caHostText = null!;
@@ -173,6 +185,16 @@ internal sealed class MainForm : Form
     {
         if (_cambridgeClient is null)
         {
+            // Home tab
+            _homeConnectionStatusText.Text = "Disabled";
+            _homeDeviceNameText.Text = "—";
+            _homeDeviceModelText.Text = "—";
+            _homeDeviceVolumeText.Text = "—";
+            _homeDeviceSourceText.Text = "—";
+            _homeDeviceOutputText.Text = "—";
+            _homeDevicePowerText.Text = "—";
+
+            // Connection tab
             _caStatusText.Text = "Disabled";
             _caHostText.Text = "—";
             _caDeviceText.Text = "—";
@@ -183,14 +205,25 @@ internal sealed class MainForm : Form
         {
             var state = _cambridgeClient.State;
             var info = _cambridgeClient.Info;
+            var isConnected = _cambridgeClient.IsConnected;
 
-            _caStatusText.Text = _cambridgeClient.IsConnected ? "Connected" : "Disconnected";
+            // Home tab
+            _homeConnectionStatusText.Text = isConnected ? "Connected" : "Disconnected";
+            _homeDeviceNameText.Text = info is not null ? $"{info.Name}" : "—";
+            _homeDeviceModelText.Text = info is not null ? $"{info.Model}" : "—";
+            _homeDeviceVolumeText.Text = state?.VolumePercent is not null ? $"{state.VolumePercent}%" : "—";
+            _homeDeviceSourceText.Text = state?.Source ?? "—";
+            _homeDeviceOutputText.Text = state?.AudioOutput ?? "—";
+            _homeDevicePowerText.Text = state is not null ? (state.Power ? "On" : "Standby") : "—";
+
+            // Connection tab
+            _caStatusText.Text = isConnected ? "Connected" : "Disconnected";
             _caHostText.Text = info is not null && !string.IsNullOrEmpty(info.UnitId) ? info.UnitId : "—";
             _caDeviceText.Text = info is not null ? $"{info.Name} ({info.Model})" : "—";
             _caZoneText.Text = state?.Source ?? "—";
             _caVolumeText.Text = state?.VolumePercent is not null ? $"{state.VolumePercent}%" : "—";
 
-            _caConnectButton.Text = _cambridgeClient.IsConnected ? "Disconnect" : "Connect";
+            _caConnectButton.Text = isConnected ? "Disconnect" : "Connect";
             _caConnectButton.Enabled = true;
         }
 
@@ -198,16 +231,33 @@ internal sealed class MainForm : Form
         {
             if (_audioController is not null)
             {
-                _winVolumeText.Text = $"{_audioController.GetVolumePercent():F0}%";
-                _winMutedText.Text = _audioController.GetMuted() ? "Yes" : "No";
-                    try
-                    {
-                        _winBalanceText.Text = $"{_audioController.GetBalance():F0}%"; // show as percentage offset
-                    }
-                    catch
-                    {
-                        _winBalanceText.Text = "—";
-                    }
+                var volumePercent = _audioController.GetVolumePercent();
+                var isMuted = _audioController.GetMuted();
+                var balance = _audioController.GetBalance();
+
+                // Home tab
+                _homeWinVolumeText.Text = $"{volumePercent:F0}%";
+                _homeWinMutedText.Text = isMuted ? "Yes" : "No";
+                try
+                {
+                    _homeWinBalanceText.Text = $"{balance:F0}%";
+                }
+                catch
+                {
+                    _homeWinBalanceText.Text = "—";
+                }
+
+                // Connection tab
+                _winVolumeText.Text = $"{volumePercent:F0}%";
+                _winMutedText.Text = isMuted ? "Yes" : "No";
+                try
+                {
+                    _winBalanceText.Text = $"{balance:F0}%";
+                }
+                catch
+                {
+                    _winBalanceText.Text = "—";
+                }
             }
         }
         catch
@@ -557,6 +607,7 @@ internal sealed class MainForm : Form
         // Redraw when selection changes
         tabs.SelectedIndexChanged += (_, _) => tabs.Invalidate();
 
+        tabs.TabPages.Add(BuildHomeTab());
         tabs.TabPages.Add(BuildConnectionTab());
         tabs.TabPages.Add(BuildConfigurationTab(app));
         tabs.TabPages.Add(BuildLogsTab());
@@ -578,6 +629,82 @@ internal sealed class MainForm : Form
         // Apply theme to the entire control tree and style non-Control strips
         Theme.ApplyToTree(this);
         Theme.StyleToolStrip(statusBar);
+    }
+
+    private TabPage BuildHomeTab()
+    {
+        var page = new TabPage("Home");
+
+        var panel = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
+
+        int y = 16;
+
+        void AddSectionHeader(string title)
+        {
+            panel.Controls.Add(new Label
+            {
+                Text = title,
+                Left = 16,
+                Top = y,
+                AutoSize = true,
+                Font = Theme.HeaderFont,
+            });
+            y += 26;
+        }
+
+        (Label label, Label value) AddRow(string labelText)
+        {
+            var lbl = new Label
+            {
+                Text = labelText + ":",
+                Left = 16,
+                Top = y,
+                Width = 160,
+                AutoSize = false,
+            };
+            var val = new Label
+            {
+                Text = "—",
+                Left = 180,
+                Top = y,
+                Width = 500,
+                AutoSize = false,
+            };
+            panel.Controls.Add(lbl);
+            panel.Controls.Add(val);
+            y += 22;
+            return (lbl, val);
+        }
+
+        // ── Connection Status section ──
+        AddSectionHeader("Connection Status");
+        (_, _homeConnectionStatusText) = AddRow("Cambridge Audio");
+        (_, _homeDeviceNameText) = AddRow("Device Name");
+
+        // Separator
+        panel.Controls.Add(new Label { Left = 16, Top = y, Width = 700, Height = 1 });
+        y += 16;
+
+        // ── Windows Audio section ──
+        AddSectionHeader("Windows Audio");
+        (_, _homeWinVolumeText) = AddRow("Volume");
+        (_, _homeWinMutedText) = AddRow("Muted");
+        (_, _homeWinBalanceText) = AddRow("Balance");
+
+        // Separator
+        panel.Controls.Add(new Label { Left = 16, Top = y, Width = 700, Height = 1 });
+        y += 16;
+
+        // ── Cambridge Audio Device section ──
+        AddSectionHeader("Cambridge Audio Device");
+        (_, _homeDeviceModelText) = AddRow("Model");
+        (_, _homeDeviceVolumeText) = AddRow("Volume");
+        (_, _homeDeviceSourceText) = AddRow("Input Source");
+        (_, _homeDeviceOutputText) = AddRow("Output");
+        (_, _homeDevicePowerText) = AddRow("Power");
+
+        page.Controls.Add(panel);
+        return page;
     }
 
     private TabPage BuildConnectionTab()
