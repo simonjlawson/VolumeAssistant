@@ -1,9 +1,10 @@
 # VolumeAssistant
-An app to allow a Cambridge Audio device to sync it's volume to Windows volume changes, turn off and on with the PC, switch Source and Balance with hotkeys, respond to the Media keys.
+Cambridge Audio Windows integration for StreamMagic devices: sync Windows volume, power, source switching, balance, and media keys from a native Windows service and tray app.
 
 ## Summary
-Directly syncs Windows volume with external Matter devices and integrates a Cambridge Audio StreamMagic device with the PC.
-A Windows service/Tray App that can expose the Windows master volume as a **Matter** smart home device on the local network for other devices to match. Connects to Cambridge Audio StreamMagic devices and directly syncs Windows volume. A Home Assistant, Google Home, or Apple Home controller can discover, commission, and control the Windows PC volume as if it were a dimmable light — where the *brightness* (level 0–254) maps directly to *volume* (0–100%).
+VolumeAssistant is a Windows service and tray app for Cambridge Audio StreamMagic integration on Windows 10/11.
+It directly syncs Windows volume with Cambridge Audio devices and can expose the PC volume as a **Matter** smart home device on the local network.
+Home Assistant, Google Home, or Apple Home can discover, commission, and control the Windows PC volume as if it were a dimmable light — where the *brightness* (level 0–254) maps directly to *volume* (0–100%).
 
 ## Features
 - **Windows Service** (`VolumeAssistant.Service`) – runs in the background without a UI, starts automatically with Windows, limited to volume handling, no key presses can be intercepted.
@@ -11,7 +12,7 @@ A Windows service/Tray App that can expose the Windows master volume as a **Matt
 - **Real-time volume sync** – whenever the master volume changes in Windows, the change is immediately reported to all subscribed Matter controllers.
 - **Two-way control** – Matter controllers can set the volume (Level Control cluster) or mute it (On/Off cluster).
 - **mDNS advertisement** – the device is automatically discoverable via DNS-SD.
-- **Cambridge Audio** - Direct integration of Cambridge Audio API for Windows → CA volume sync and configurable source/output/power control.
+- **Cambridge Audio StreamMagic integration** - Direct Windows → Cambridge Audio volume sync with configurable source, output, and power control.
   - Power On on login/wakeup; Power Off on shutdown/sleep
   - Switch to USB source on login
   - Windows volume controls Amp volume (with configurable maximum)
