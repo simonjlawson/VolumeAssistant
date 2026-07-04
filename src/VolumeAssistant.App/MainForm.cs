@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
+using NAudio.CoreAudioApi;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Globalization;
@@ -30,6 +31,7 @@ internal sealed class MainForm : Form
 
     // ── Home tab controls ────────────────────────────────────────────────────
     private Label _homeConnectionStatusText = null!;
+    private Label _homeTimestampLabel = null!;
     private Label _homeDeviceNameText = null!;
     private Label _homeDeviceModelText = null!;
     private Label _homeWinVolumeText = null!;
@@ -188,6 +190,7 @@ internal sealed class MainForm : Form
             // Home tab
             _homeConnectionStatusText.Text = "Disabled";
             _homeDeviceNameText.Text = "—";
+            _homeTimestampLabel.Text = "—";
             _homeDeviceModelText.Text = "—";
             _homeDeviceVolumeText.Text = "—";
             _homeDeviceSourceText.Text = "—";
@@ -208,7 +211,9 @@ internal sealed class MainForm : Form
             var isConnected = _cambridgeClient.IsConnected;
 
             // Home tab
-            _homeConnectionStatusText.Text = isConnected ? "Connected" : "Disconnected";
+            var deviceConnected = isConnected ? info is not null ? $"Connected: {info.Name} ({info.Model})" : "Connected" : "";
+            _homeConnectionStatusText.Text = isConnected ? deviceConnected : "Disconnected";
+            _homeTimestampLabel.Text = $"Last update: {DateTime.Now.ToString("yy/mm/dd HH:mm")}";
             _homeDeviceNameText.Text = info is not null ? $"{info.Name}" : "—";
             _homeDeviceModelText.Text = info is not null ? $"{info.Model}" : "—";
             _homeDeviceVolumeText.Text = state?.VolumePercent is not null ? $"{state.VolumePercent}%" : "—";
@@ -592,7 +597,7 @@ internal sealed class MainForm : Form
     private void BuildUi(TrayApplication app)
     {
         Text = "VolumeAssistant";
-        Size = new Size(768, 640);
+        Size = new Size(860, 460);
         MinimumSize = new Size(480, 360);
         StartPosition = FormStartPosition.CenterScreen;
         Theme.ApplyTo(this);
@@ -635,75 +640,147 @@ internal sealed class MainForm : Form
     {
         var page = new TabPage("Home");
 
-        var panel = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
+        // Main container with two columns layout
+        var mainPanel = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
 
-        int y = 16;
-
-        void AddSectionHeader(string title)
+        // Left panel (status card)
+        var leftPanel = new Panel
         {
-            panel.Controls.Add(new Label
-            {
-                Text = title,
-                Left = 16,
-                Top = y,
-                AutoSize = true,
-                Font = Theme.HeaderFont,
-            });
-            y += 26;
-        }
+            Left = 16,
+            Top = 16,
+            Width = 320,
+            Height = 320,
+            BackColor = Color.FromArgb(52, 152, 219), // Nice blue
+            Margin = new Padding(0, 0, 16, 16)
+        };
 
-        (Label label, Label value) AddRow(string labelText)
+        // Status icon/checkmark area (large circle with checkmark)
+        var iconLabel = new Label
         {
-            var lbl = new Label
+            Text = "✓",
+            Left = 75,
+            Top = 50,
+            Width = 160,
+            Height = 160,
+            Font = new Font("Segoe UI", 18F, FontStyle.Bold),
+            ForeColor = Color.White,
+            TextAlign = ContentAlignment.MiddleCenter,
+            Margin = new Padding(0)
+        };
+        leftPanel.Controls.Add(iconLabel);
+
+        // Status text
+        _homeConnectionStatusText = new Label
+        {
+            Text = "Status: —",
+            Left = 16,
+            Top = 220,
+            Width = 288,
+            Height = 30,
+            Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+            ForeColor = Color.White,
+            TextAlign = ContentAlignment.MiddleCenter,
+            Margin = new Padding(0)
+        };
+        leftPanel.Controls.Add(_homeConnectionStatusText);
+
+        // Timestamp
+        _homeTimestampLabel = new Label
+        {
+            Text = "Last update: —",
+            Left = 16,
+            Top = 260,
+            Width = 288,
+            Height = 20,
+            Font = new Font("Segoe UI", 9F),
+            ForeColor = Color.FromArgb(240, 240, 240),
+            TextAlign = ContentAlignment.MiddleCenter,
+            Margin = new Padding(0)
+        };
+        leftPanel.Controls.Add(_homeTimestampLabel);
+
+        mainPanel.Controls.Add(leftPanel);
+
+        // Right panel (information and details)
+        var rightPanel = new Panel
+        {
+            Left = 352,
+            Top = 16,
+            Width = 450,
+            Height = 320,
+            AutoScroll = true,
+            BackColor = Color.White,
+            BorderStyle = BorderStyle.FixedSingle,
+            Margin = new Padding(0)
+        };
+
+        int rightY = 16;
+
+        // Device name header
+        var deviceNameLabel = new Label
+        {
+            Text = "—",
+            Left = 16,
+            Top = rightY,
+            Width = 400,
+            Height = 28,
+            Font = new Font("Segoe UI", 13F, FontStyle.Bold),
+            ForeColor = Theme.Foreground,
+            AutoSize = false
+        };
+        _homeDeviceNameText = deviceNameLabel;
+        rightPanel.Controls.Add(deviceNameLabel);
+        rightY += 36;
+
+        // Key metrics grid - returns the value label for field assignment
+        Label AddMetric(string label)
+        {
+            var labelControl = new Label
             {
-                Text = labelText + ":",
+                Text = label,
                 Left = 16,
-                Top = y,
-                Width = 160,
-                AutoSize = false,
+                Top = rightY,
+                Width = 180,
+                Height = 20,
+                Font = Theme.DefaultFont,
+                ForeColor = Theme.SecondaryForeground,
+                AutoSize = false
             };
-            var val = new Label
+            rightPanel.Controls.Add(labelControl);
+
+            var valueControl = new Label
             {
                 Text = "—",
-                Left = 180,
-                Top = y,
-                Width = 500,
-                AutoSize = false,
+                Left = 200,
+                Top = rightY,
+                Width = 230,
+                Height = 20,
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                ForeColor = Theme.Foreground,
+                AutoSize = false
             };
-            panel.Controls.Add(lbl);
-            panel.Controls.Add(val);
-            y += 22;
-            return (lbl, val);
+            rightPanel.Controls.Add(valueControl);
+            rightY += 24;
+            return valueControl;
         }
 
-        // ── Connection Status section ──
-        AddSectionHeader("Connection Status");
-        (_, _homeConnectionStatusText) = AddRow("Cambridge Audio");
-        (_, _homeDeviceNameText) = AddRow("Device Name");
+        // Windows Audio section
+        _homeWinVolumeText = AddMetric("Windows Volume");
+        _homeWinMutedText = AddMetric("Windows Muted");
+        _homeWinBalanceText = AddMetric("Windows Balance");
 
-        // Separator
-        panel.Controls.Add(new Label { Left = 16, Top = y, Width = 700, Height = 1 });
-        y += 16;
+        rightY += 8; // Extra spacing
 
-        // ── Windows Audio section ──
-        AddSectionHeader("Windows Audio");
-        (_, _homeWinVolumeText) = AddRow("Volume");
-        (_, _homeWinMutedText) = AddRow("Muted");
-        (_, _homeWinBalanceText) = AddRow("Balance");
+        // Cambridge Device section
+        _homeDeviceModelText = AddMetric("Device Model");
+        _homeDeviceVolumeText = AddMetric("Device Volume");
+        _homeDeviceSourceText = AddMetric("Input Source");
+        _homeDeviceOutputText = AddMetric("Output");
+        _homeDevicePowerText = AddMetric("Power");
 
-        // Separator
-        panel.Controls.Add(new Label { Left = 16, Top = y, Width = 700, Height = 1 });
-        y += 16;
+        mainPanel.Controls.Add(rightPanel);
 
-        // ── Cambridge Audio Device section ──
-        AddSectionHeader("Cambridge Audio Device");
-        (_, _homeDeviceModelText) = AddRow("Model");
-        (_, _homeDeviceVolumeText) = AddRow("Volume");
-        (_, _homeDeviceSourceText) = AddRow("Input Source");
-        (_, _homeDeviceOutputText) = AddRow("Output");
-        (_, _homeDevicePowerText) = AddRow("Power");
-
-        page.Controls.Add(panel);
+        page.Controls.Add(mainPanel);
         return page;
     }
 
