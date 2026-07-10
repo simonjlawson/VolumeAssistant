@@ -26,6 +26,15 @@ This integration is a partial C# port of the Python projects:
 [aiostreammagic](https://github.com/noahhusby/aiostreammagic)
 [stream_magic](https://github.com/sebk-666/stream_magic)
 
+## User Interface
+
+The tray application provides a tabbed interface with real-time system status:
+
+- **Home Tab** – Real-time system status overview displaying Windows audio metrics (volume, mute status) and Cambridge Audio device status (connection, device name, volume, source, power state) with timestamp of last update.
+- **Connection Tab** – Connection information and connection status for Cambridge Audio devices.
+- **Configuration Tab** – Settings editor for configuring Cambridge Audio integration, startup behavior, and other options.
+- **Logs Tab** – Real-time log output showing application events and debug information.
+
 ## Installation
 
 ### App Install
